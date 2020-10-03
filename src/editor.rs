@@ -1,7 +1,10 @@
 use crossterm::{
+    cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
-    terminal, Result,
+    terminal::{self, Clear, ClearType},
+    Result,
 };
+use std::io::{self, Write};
 
 pub struct Editor {
     should_quit: bool,
@@ -12,6 +15,8 @@ impl Editor {
         terminal::enable_raw_mode()?;
 
         loop {
+            self.refresh_screen();
+
             if self.should_quit {
                 return Ok(());
             }
@@ -37,6 +42,13 @@ impl Editor {
             }
             _ => {}
         }
+    }
+
+    fn refresh_screen(&self) {
+        let mut stdout = io::stdout();
+        // TODO: convert unwrap to errors
+        crossterm::queue!(stdout, Clear(ClearType::All), cursor::MoveTo(1, 1)).unwrap();
+        stdout.flush().unwrap();
     }
 }
 
