@@ -18,6 +18,7 @@ impl Editor {
             self.refresh_screen();
 
             if self.should_quit {
+                println!("Thanks for using the Redd editor!");
                 return Ok(());
             }
 
