@@ -3,37 +3,45 @@ use crossterm::{
     terminal, Result,
 };
 
-pub struct Editor {}
+pub struct Editor {
+    should_quit: bool,
+}
 
 impl Editor {
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
         terminal::enable_raw_mode()?;
 
         loop {
-            match event::read()? {
-                Event::Key(KeyEvent { code, modifiers }) => {
-                    if modifiers == KeyModifiers::CONTROL && code == KeyCode::Char('q').into() {
-                        break;
-                    }
+            if self.should_quit {
+                return Ok(());
+            }
 
-                    if let KeyCode::Char(c) = code {
-                        if c.is_control() {
-                            println!("{:?} \r", c as u8);
-                        } else {
-                            println!("{:?} ({})\r", c as u8, c);
-                        }
-                    }
+            match event::read()? {
+                Event::Key(event) => {
+                    self.proccess_keypress(event);
                 }
                 _ => {}
             }
         }
+    }
 
-        Ok(())
+    fn proccess_keypress(&mut self, event: KeyEvent) {
+        match event {
+            KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: KeyModifiers::CONTROL,
+            } => {
+                if c == 'q' {
+                    self.should_quit = true;
+                }
+            }
+            _ => {}
+        }
     }
 }
 
 impl Default for Editor {
     fn default() -> Self {
-        Self {}
+        Self { should_quit: false }
     }
 }
