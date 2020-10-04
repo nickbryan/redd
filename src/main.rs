@@ -1,4 +1,5 @@
 mod editor;
+mod terminal;
 
 use crossterm::Result;
 use editor::Editor;
