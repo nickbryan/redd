@@ -1,8 +1,6 @@
 use crate::terminal::Terminal;
-use crossterm::{
-    event::{KeyCode, KeyEvent, KeyModifiers},
-    Result,
-};
+use anyhow::{Context, Result};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub struct Editor {
     should_quit: bool,
@@ -10,19 +8,34 @@ pub struct Editor {
 }
 
 impl Editor {
+    pub fn new() -> Result<Self> {
+        Ok(Self {
+            should_quit: false,
+            terminal: Terminal::new().context("unable to create Terminal")?,
+        })
+    }
+
     pub fn run(&mut self) -> Result<()> {
+        self.terminal.enter_alternate_screen()?;
+
         loop {
-            self.refresh_screen();
+            self.refresh_screen().context("unable to refresh screen")?;
 
             if self.should_quit {
-                println!("Thanks for using the Redd editor!\r");
-                return Ok(());
+                break;
             }
 
-            if let Some(key_event) = self.terminal.process_events() {
+            if let Some(key_event) = self
+                .terminal
+                .process_events()
+                .context("unable to process events")?
+            {
                 self.proccess_keypress(key_event);
             }
         }
+
+        self.terminal.leave_alternate_screen()?;
+        Ok(())
     }
 
     fn proccess_keypress(&mut self, event: KeyEvent) {
@@ -39,37 +52,29 @@ impl Editor {
         }
     }
 
-    fn refresh_screen(&mut self) {
-        // TODO: convert unwrap to errors
-        self.terminal.hide_cursor();
-        self.terminal.position_cursor(0, 0);
+    fn refresh_screen(&mut self) -> Result<()> {
+        self.terminal.hide_cursor()?;
+        self.terminal.position_cursor(0, 0)?;
 
         if self.should_quit {
-            self.terminal.clear();
-            self.terminal.flush();
-            return;
+            self.terminal.clear()?;
+            self.terminal.flush()?;
+            return Ok(());
         }
 
-        self.draw_rows();
-        self.terminal.position_cursor(1, 0);
+        self.draw_rows()?;
+        self.terminal.position_cursor(1, 0)?;
 
-        self.terminal.show_cursor();
-        self.terminal.flush();
+        self.terminal.show_cursor()?;
+        self.terminal.flush()
     }
 
-    fn draw_rows(&mut self) {
+    fn draw_rows(&mut self) -> Result<()> {
         for _ in 0..self.terminal.size().height {
-            self.terminal.clear_current_line();
+            self.terminal.clear_current_line()?;
             println!("~\r");
         }
-    }
-}
 
-impl Default for Editor {
-    fn default() -> Self {
-        Self {
-            should_quit: false,
-            terminal: Terminal::default(),
-        }
+        Ok(())
     }
 }

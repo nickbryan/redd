@@ -1,7 +1,8 @@
+use anyhow::{Context, Result};
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::{self, Event, KeyEvent},
-    terminal::{self, Clear, ClearType},
+    terminal::{self, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::{self, Stdout, Write};
 
@@ -16,57 +17,63 @@ pub struct Terminal {
 }
 
 impl Terminal {
-    pub fn clear(&mut self) {
-        crossterm::queue!(self.stdout, Clear(ClearType::All)).unwrap();
-    }
+    pub fn new() -> Result<Self> {
+        let size = terminal::size().context("unable to get terminal size")?;
 
-    pub fn clear_current_line(&mut self) {
-        crossterm::queue!(self.stdout, Clear(ClearType::CurrentLine)).unwrap();
-    }
+        terminal::enable_raw_mode().context("unable to enable raw mode")?;
 
-    pub fn flush(&mut self) {
-        self.stdout.flush().unwrap();
-    }
-
-    pub fn hide_cursor(&mut self) {
-        crossterm::queue!(self.stdout, Hide).unwrap();
-    }
-
-    pub fn position_cursor(&mut self, x: u16, y: u16) {
-        crossterm::queue!(self.stdout, MoveTo(x, y)).unwrap();
-    }
-
-    pub fn process_events(&self) -> Option<KeyEvent> {
-        match event::read().unwrap() {
-            Event::Key(event) => {
-                return Some(event);
-            }
-            _ => return None,
-        }
-    }
-
-    pub fn show_cursor(&mut self) {
-        crossterm::queue!(self.stdout, Show).unwrap();
-    }
-
-    pub fn size(&self) -> &Size {
-        &self.size
-    }
-}
-
-impl Default for Terminal {
-    fn default() -> Self {
-        // TODO: handle unwrapping in this function.
-        let size = terminal::size().unwrap();
-
-        terminal::enable_raw_mode().unwrap();
-
-        Self {
+        Ok(Self {
             size: Size {
                 width: size.0,
                 height: size.1,
             },
             stdout: io::stdout(),
+        })
+    }
+
+    pub fn clear(&mut self) -> Result<()> {
+        crossterm::queue!(self.stdout, Clear(ClearType::All)).context("unable to clear screen")
+    }
+
+    pub fn clear_current_line(&mut self) -> Result<()> {
+        crossterm::queue!(self.stdout, Clear(ClearType::CurrentLine))
+            .context("unable to clear line")
+    }
+
+    pub fn enter_alternate_screen(&mut self) -> Result<()> {
+        crossterm::queue!(self.stdout, EnterAlternateScreen)
+            .context("unable to enter alternate screen")
+    }
+
+    pub fn flush(&mut self) -> Result<()> {
+        self.stdout.flush().context("unable to flush stdout")
+    }
+
+    pub fn hide_cursor(&mut self) -> Result<()> {
+        crossterm::queue!(self.stdout, Hide).context("unable to hide cursor")
+    }
+
+    pub fn leave_alternate_screen(&mut self) -> Result<()> {
+        crossterm::queue!(self.stdout, LeaveAlternateScreen)
+            .context("unable to leave alternate screen")
+    }
+
+    pub fn position_cursor(&mut self, x: u16, y: u16) -> Result<()> {
+        crossterm::queue!(self.stdout, MoveTo(x, y)).context("unable to position cursor")
+    }
+
+    pub fn process_events(&self) -> Result<Option<KeyEvent>> {
+        match event::read().context("unable to read event")? {
+            Event::Key(event) => Ok(Some(event)),
+            _ => Ok(None),
         }
+    }
+
+    pub fn show_cursor(&mut self) -> Result<()> {
+        crossterm::queue!(self.stdout, Show).context("unable to show cursor")
+    }
+
+    pub fn size(&self) -> &Size {
+        &self.size
     }
 }
