@@ -41,10 +41,11 @@ impl Editor {
 
     fn refresh_screen(&mut self) {
         // TODO: convert unwrap to errors
-        self.terminal.clear();
+        self.terminal.hide_cursor();
         self.terminal.position_cursor(0, 0);
 
         if self.should_quit {
+            self.terminal.clear();
             self.terminal.flush();
             return;
         }
@@ -52,11 +53,13 @@ impl Editor {
         self.draw_rows();
         self.terminal.position_cursor(1, 0);
 
+        self.terminal.show_cursor();
         self.terminal.flush();
     }
 
-    fn draw_rows(&self) {
+    fn draw_rows(&mut self) {
         for _ in 0..self.terminal.size().height {
+            self.terminal.clear_current_line();
             println!("~\r");
         }
     }

@@ -1,5 +1,5 @@
 use crossterm::{
-    cursor::MoveTo,
+    cursor::{Hide, MoveTo, Show},
     event::{self, Event, KeyEvent},
     terminal::{self, Clear, ClearType},
 };
@@ -20,8 +20,16 @@ impl Terminal {
         crossterm::queue!(self.stdout, Clear(ClearType::All)).unwrap();
     }
 
+    pub fn clear_current_line(&mut self) {
+        crossterm::queue!(self.stdout, Clear(ClearType::CurrentLine)).unwrap();
+    }
+
     pub fn flush(&mut self) {
         self.stdout.flush().unwrap();
+    }
+
+    pub fn hide_cursor(&mut self) {
+        crossterm::queue!(self.stdout, Hide).unwrap();
     }
 
     pub fn position_cursor(&mut self, x: u16, y: u16) {
@@ -35,6 +43,10 @@ impl Terminal {
             }
             _ => return None,
         }
+    }
+
+    pub fn show_cursor(&mut self) {
+        crossterm::queue!(self.stdout, Show).unwrap();
     }
 
     pub fn size(&self) -> &Size {
