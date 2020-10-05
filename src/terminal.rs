@@ -1,8 +1,5 @@
 use anyhow::{Context, Result};
-use crossterm::{
-    event::{self, Event, KeyEvent},
-    terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
 use std::io::{self, Stdout, Write};
 use tui::{backend::CrosstermBackend, layout::Rect};
 
@@ -49,13 +46,6 @@ impl Terminal {
         self.terminal
             .set_cursor(x, y)
             .context("unable to position cursor")
-    }
-
-    pub fn process_events(&self) -> Result<Option<KeyEvent>> {
-        match event::read().context("unable to read event")? {
-            Event::Key(event) => Ok(Some(event)),
-            _ => Ok(None),
-        }
     }
 
     pub fn show_cursor(&mut self) -> Result<()> {

@@ -1,4 +1,5 @@
 mod editor;
+mod event;
 mod terminal;
 
 use anyhow::Context;

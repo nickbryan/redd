@@ -1,6 +1,9 @@
-use crate::terminal::Terminal;
+use crate::{
+    event::{Event, Events, Key},
+    terminal::Terminal,
+};
 use anyhow::{Context, Result};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use std::time::Duration;
 
 pub struct Editor {
     should_quit: bool,
@@ -16,6 +19,8 @@ impl Editor {
     }
 
     pub fn run(&mut self) -> Result<()> {
+        let events = Events::listen(Duration::from_millis(250));
+
         loop {
             self.refresh_screen().context("unable to refresh screen")?;
 
@@ -23,28 +28,18 @@ impl Editor {
                 break;
             }
 
-            if let Some(key_event) = self
-                .terminal
-                .process_events()
-                .context("unable to process events")?
-            {
-                self.proccess_keypress(key_event);
+            match events.next()? {
+                Event::Input(key) => self.proccess_keypress(key),
+                Event::Tick => { /* We can do stuff here while waiting for input */ }
             }
         }
 
         Ok(())
     }
 
-    fn proccess_keypress(&mut self, event: KeyEvent) {
-        match event {
-            KeyEvent {
-                code: KeyCode::Char(c),
-                modifiers: KeyModifiers::CONTROL,
-            } => {
-                if c == 'q' {
-                    self.should_quit = true;
-                }
-            }
+    fn proccess_keypress(&mut self, key: Key) {
+        match key {
+            Key::Ctrl('q') => self.should_quit = true,
             _ => {}
         }
     }
