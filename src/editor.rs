@@ -16,8 +16,6 @@ impl Editor {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        self.terminal.enter_alternate_screen()?;
-
         loop {
             self.refresh_screen().context("unable to refresh screen")?;
 
@@ -34,7 +32,6 @@ impl Editor {
             }
         }
 
-        self.terminal.leave_alternate_screen()?;
         Ok(())
     }
 
@@ -70,7 +67,7 @@ impl Editor {
     }
 
     fn draw_rows(&mut self) -> Result<()> {
-        for _ in 0..self.terminal.size().height {
+        for _ in 0..self.terminal.size()?.height {
             self.terminal.clear_current_line()?;
             println!("~\r");
         }
