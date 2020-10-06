@@ -1,5 +1,5 @@
 use crate::event::Key;
-use anyhow::{Context, Result};
+use anyhow::{Context, Error, Result};
 use crossterm::event;
 use std::{
     sync::mpsc::{self, Receiver},
@@ -10,31 +10,46 @@ use std::{
 pub enum Event {
     Input(Key),
     Tick,
+    Error(Error),
 }
+
 pub struct Events {
-    reciever: Receiver<Event>,
+    rx: Receiver<Event>,
 }
 
 impl Events {
     pub fn listen(tick_rate: Duration) -> Self {
-        let (sender, reciever) = mpsc::channel();
+        let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || loop {
-            // TODO: try and handle the errors here
-            if event::poll(tick_rate).unwrap() {
-                if let event::Event::Key(key) = event::read().unwrap() {
-                    sender.send(Event::Input(Key::from(key))).unwrap();
-                }
-            }
+            match event::poll(tick_rate) {
+                Ok(true) => match event::read() {
+                    Ok(event::Event::Key(key)) => tx.send(Event::Input(Key::from(key))).unwrap(),
+                    Err(e) => {
+                        tx.send(Event::Error(Error::from(e).context("unable to read event")))
+                            .unwrap();
 
-            sender.send(Event::Tick).unwrap();
+                        break;
+                    }
+                    _ => tx.send(Event::Tick).unwrap(),
+                },
+                Err(e) => {
+                    tx.send(Event::Error(
+                        Error::from(e).context("unable to poll for events"),
+                    ))
+                    .unwrap();
+
+                    break;
+                }
+                _ => {}
+            };
         });
 
-        Events { reciever }
+        Events { rx }
     }
 
     pub fn next(&self) -> Result<Event> {
-        self.reciever
+        self.rx
             .recv()
             .context("unable to recive from event channel")
     }

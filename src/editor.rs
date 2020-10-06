@@ -31,6 +31,7 @@ impl Editor {
             match events.next()? {
                 Event::Input(key) => self.proccess_keypress(key),
                 Event::Tick => { /* We can do stuff here while waiting for input */ }
+                Event::Error(e) => return Err(e),
             }
         }
 
