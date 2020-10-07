@@ -3,13 +3,19 @@ use crate::{
     terminal::Terminal,
 };
 use anyhow::{Context, Result};
-use std::{cmp, time::Duration};
+use std::time::Duration;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+pub struct Position {
+    pub x: usize,
+    pub y: usize,
+}
 
 pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
+    cursor_position: Position,
 }
 
 impl Editor {
@@ -17,6 +23,7 @@ impl Editor {
         Ok(Self {
             should_quit: false,
             terminal: Terminal::new().context("unable to create Terminal")?,
+            cursor_position: Position { x: 0, y: 0 },
         })
     }
 
@@ -31,25 +38,69 @@ impl Editor {
             }
 
             match events.next()? {
-                Event::Input(key) => self.proccess_keypress(key),
+                Event::Input(key) => self
+                    .proccess_keypress(key)
+                    .context("unable to process key press")?,
                 Event::Tick => { /* We can do stuff here while waiting for input */ }
                 Event::Error(e) => return Err(e),
-            }
+            };
         }
 
         Ok(())
     }
 
-    fn proccess_keypress(&mut self, key: Key) {
+    fn move_cursor(&mut self, key: Key) -> Result<()> {
+        let Position { x, y } = self.cursor_position;
+        let size = self.terminal.size()?;
+        let width = size.width.saturating_sub(1) as usize;
+        let height = size.height.saturating_sub(1) as usize;
+
+        let (x, y) = match key {
+            Key::Up => (x, y.saturating_sub(1)),
+            Key::Down => {
+                if y < height {
+                    (x, y.saturating_add(1))
+                } else {
+                    (x, y)
+                }
+            }
+            Key::Left => (x.saturating_sub(1), y),
+            Key::Right => {
+                if x < width {
+                    (x.saturating_add(1), y)
+                } else {
+                    (x, y)
+                }
+            }
+            Key::PageUp => (x, 0),
+            Key::PageDown => (x, height),
+            Key::Home => (0, y),
+            Key::End => (width, y),
+            _ => (x, y),
+        };
+
+        self.cursor_position = Position { x, y };
+        Ok(())
+    }
+    fn proccess_keypress(&mut self, key: Key) -> Result<()> {
         match key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Up
+            | Key::Down
+            | Key::Left
+            | Key::Right
+            | Key::PageUp
+            | Key::PageDown
+            | Key::End
+            | Key::Home => self.move_cursor(key).context("unable to move cursor")?,
             _ => {}
-        }
+        };
+        Ok(())
     }
 
     fn refresh_screen(&mut self) -> Result<()> {
         self.terminal.hide_cursor()?;
-        self.terminal.position_cursor(0, 0)?;
+        self.terminal.position_cursor(&Position { x: 0, y: 0 })?;
 
         if self.should_quit {
             self.terminal.clear()?;
@@ -58,7 +109,7 @@ impl Editor {
         }
 
         self.draw_rows()?;
-        self.terminal.position_cursor(1, 0)?;
+        self.terminal.position_cursor(&self.cursor_position)?;
 
         self.terminal.show_cursor()?;
         self.terminal.flush()

@@ -1,3 +1,4 @@
+use crate::editor::Position;
 use anyhow::{Context, Result};
 use crossterm::terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen};
 use std::io::{self, Stdout, Write};
@@ -42,9 +43,9 @@ impl Terminal {
         self.terminal.hide_cursor().context("unable to hide cursor")
     }
 
-    pub fn position_cursor(&mut self, x: u16, y: u16) -> Result<()> {
+    pub fn position_cursor(&mut self, position: &Position) -> Result<()> {
         self.terminal
-            .set_cursor(x, y)
+            .set_cursor(position.x as u16, position.y as u16)
             .context("unable to position cursor")
     }
 
