@@ -98,7 +98,16 @@ impl Editor {
             _ => (x, y),
         };
 
-        self.cursor_position = Position { x, y };
+        let width = if let Some(row) = self.document.row(y) {
+            row.len()
+        } else {
+            0
+        };
+
+        self.cursor_position = Position {
+            x: if x > width { width } else { x },
+            y,
+        };
     }
 
     fn proccess_keypress(&mut self, key: Key) -> Result<()> {
