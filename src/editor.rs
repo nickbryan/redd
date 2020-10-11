@@ -65,11 +65,14 @@ impl Editor {
         Ok(())
     }
 
-    fn move_cursor(&mut self, key: Key) -> Result<()> {
+    fn move_cursor(&mut self, key: Key) {
         let Position { x, y } = self.cursor_position;
-        let size = self.terminal.size()?;
-        let width = size.width.saturating_sub(1) as usize;
         let height = self.document.len();
+        let width = if let Some(row) = self.document.row(y) {
+            row.len()
+        } else {
+            0
+        };
 
         let (x, y) = match key {
             Key::Up => (x, y.saturating_sub(1)),
@@ -96,7 +99,6 @@ impl Editor {
         };
 
         self.cursor_position = Position { x, y };
-        Ok(())
     }
 
     fn proccess_keypress(&mut self, key: Key) -> Result<()> {
@@ -109,7 +111,7 @@ impl Editor {
             | Key::PageUp
             | Key::PageDown
             | Key::End
-            | Key::Home => self.move_cursor(key).context("unable to move cursor")?,
+            | Key::Home => self.move_cursor(key),
             _ => {}
         };
 
