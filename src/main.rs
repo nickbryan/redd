@@ -1,5 +1,7 @@
+mod document;
 mod editor;
 mod event;
+mod row;
 mod terminal;
 
 use anyhow::Context;

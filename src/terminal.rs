@@ -30,7 +30,7 @@ impl Terminal {
         self.terminal.clear().context("unable to clear screen")
     }
 
-    pub fn clear_current_line(&mut self) -> Result<()> {
+    pub fn clear_current_line(&self) -> Result<()> {
         crossterm::queue!(io::stdout(), Clear(ClearType::CurrentLine))
             .context("unable to clear line")
     }
@@ -53,7 +53,7 @@ impl Terminal {
         self.terminal.show_cursor().context("unable to show cursor")
     }
 
-    pub fn size(&mut self) -> Result<Rect> {
+    pub fn size(&self) -> Result<Rect> {
         self.terminal
             .size()
             .context("unable to get size of terminal")
