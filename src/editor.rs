@@ -5,7 +5,7 @@ use crate::{
     terminal::Terminal,
 };
 use anyhow::{Context, Result};
-use std::time::Duration;
+use std::{env, time::Duration};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -24,11 +24,20 @@ pub struct Editor {
 
 impl Editor {
     pub fn new() -> Result<Self> {
+        let args: Vec<String> = env::args().collect();
+
+        let document = if args.len() > 1 {
+            let file_name = &args[1];
+            Document::open(&file_name).unwrap_or_default()
+        } else {
+            Document::default()
+        };
+
         Ok(Self {
             should_quit: false,
             terminal: Terminal::new().context("unable to create Terminal")?,
             cursor_position: Position::default(),
-            document: Document::open(),
+            document,
         })
     }
 
