@@ -226,6 +226,7 @@ dependencies = [
  "anyhow",
  "crossterm 0.18.0",
  "tui",
+ "unicode-segmentation",
 ]
 
 [[package]]
