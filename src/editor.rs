@@ -147,7 +147,10 @@ impl Editor {
         }
 
         self.draw_rows()?;
-        self.terminal.position_cursor(&self.cursor_position)?;
+        self.terminal.position_cursor(&Position {
+            x: self.cursor_position.x.saturating_sub(self.offset.x),
+            y: self.cursor_position.y.saturating_sub(self.offset.y),
+        })?;
 
         self.terminal.show_cursor()?;
         self.terminal.flush()
