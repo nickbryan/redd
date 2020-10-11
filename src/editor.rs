@@ -84,10 +84,24 @@ impl Editor {
                     (x, y)
                 }
             }
-            Key::Left => (x.saturating_sub(1), y),
+            Key::Left => {
+                if x > 0 {
+                    (x - 1, y)
+                } else if y > 0 {
+                    if let Some(row) = self.document.row(y) {
+                        (row.len(), y - 1)
+                    } else {
+                        (0, y - 1)
+                    }
+                } else {
+                    (x, y)
+                }
+            }
             Key::Right => {
                 if x < width {
-                    (x.saturating_add(1), y)
+                    (x + 1, y)
+                } else if y < height {
+                    (0, y + 1)
                 } else {
                     (x, y)
                 }
