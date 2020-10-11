@@ -65,7 +65,8 @@ impl Editor {
         Ok(())
     }
 
-    fn move_cursor(&mut self, key: Key) {
+    fn move_cursor(&mut self, key: Key) -> Result<()> {
+        let terminal_height = self.terminal.size()?.height as usize;
         let Position { x, y } = self.cursor_position;
         let height = self.document.len();
         let width = if let Some(row) = self.document.row(y) {
@@ -91,8 +92,20 @@ impl Editor {
                     (x, y)
                 }
             }
-            Key::PageUp => (x, 0),
-            Key::PageDown => (x, height),
+            Key::PageUp => {
+                if y > terminal_height {
+                    (x, y - terminal_height)
+                } else {
+                    (x, 0)
+                }
+            }
+            Key::PageDown => {
+                if y.saturating_add(terminal_height) < height {
+                    (x, y + terminal_height as usize)
+                } else {
+                    (x, height)
+                }
+            }
             Key::Home => (0, y),
             Key::End => (width, y),
             _ => (x, y),
@@ -108,6 +121,8 @@ impl Editor {
             x: if x > width { width } else { x },
             y,
         };
+
+        Ok(())
     }
 
     fn proccess_keypress(&mut self, key: Key) -> Result<()> {
@@ -120,7 +135,7 @@ impl Editor {
             | Key::PageUp
             | Key::PageDown
             | Key::End
-            | Key::Home => self.move_cursor(key),
+            | Key::Home => self.move_cursor(key).context("unable to move cursor")?,
             _ => {}
         };
 
