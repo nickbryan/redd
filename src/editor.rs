@@ -19,6 +19,7 @@ pub struct Editor {
     should_quit: bool,
     terminal: Terminal,
     cursor_position: Position,
+    offset: Position,
     document: Document,
 }
 
@@ -37,6 +38,7 @@ impl Editor {
             should_quit: false,
             terminal: Terminal::new().context("unable to create Terminal")?,
             cursor_position: Position::default(),
+            offset: Position::default(),
             document,
         })
     }
@@ -67,7 +69,7 @@ impl Editor {
         let Position { x, y } = self.cursor_position;
         let size = self.terminal.size()?;
         let width = size.width.saturating_sub(1) as usize;
-        let height = size.height.saturating_sub(1) as usize;
+        let height = self.document.len();
 
         let (x, y) = match key {
             Key::Up => (x, y.saturating_sub(1)),
@@ -110,6 +112,27 @@ impl Editor {
             | Key::Home => self.move_cursor(key).context("unable to move cursor")?,
             _ => {}
         };
+
+        self.scroll().context("unable to scroll")
+    }
+
+    fn scroll(&mut self) -> Result<()> {
+        let Position { x, y } = self.cursor_position;
+        let width = self.terminal.size()?.width as usize;
+        let height = self.terminal.size()?.height as usize;
+
+        if y < self.offset.y {
+            self.offset.y = y;
+        } else if y >= self.offset.y.saturating_add(height) {
+            self.offset.y = y.saturating_sub(height).saturating_add(1);
+        }
+
+        if x < self.offset.x {
+            self.offset.x = x;
+        } else if x >= self.offset.x.saturating_add(width) {
+            self.offset.x = x.saturating_add(width).saturating_add(1);
+        }
+
         Ok(())
     }
 
@@ -143,8 +166,9 @@ impl Editor {
     }
 
     fn draw_row(&self, row: &Row) -> Result<()> {
-        let start = 0;
-        let end = self.terminal.size()?.width as usize;
+        let width = self.terminal.size()?.width as usize;
+        let start = self.offset.x;
+        let end = self.offset.x + width;
         let row = row.render(start, end);
         println!("{}\r", row);
         Ok(())
@@ -156,7 +180,7 @@ impl Editor {
         for terminal_row in 0..height - 1 {
             self.terminal.clear_current_line()?;
 
-            if let Some(row) = self.document.row(terminal_row as usize) {
+            if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
                 self.draw_row(row).context("unable to draw row")?;
             } else if self.document.is_empty() && terminal_row == height / 3 {
                 self.draw_welcome_message()?;
