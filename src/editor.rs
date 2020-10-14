@@ -220,7 +220,7 @@ impl Editor {
     fn draw_rows(&mut self) -> Result<()> {
         let height = self.terminal.size()?.height;
 
-        for terminal_row in 0..height - 1 {
+        for terminal_row in 0..height {
             self.terminal.clear_current_line()?;
 
             if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {

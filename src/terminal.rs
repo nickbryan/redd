@@ -54,9 +54,17 @@ impl Terminal {
     }
 
     pub fn size(&self) -> Result<Rect> {
-        self.terminal
+        let size = self
+            .terminal
             .size()
-            .context("unable to get size of terminal")
+            .context("unable to get size of terminal")?;
+
+        Ok(Rect::new(
+            size.x,
+            size.y,
+            size.width,
+            size.height.saturating_sub(2),
+        ))
     }
 }
 
