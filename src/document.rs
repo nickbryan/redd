@@ -4,6 +4,7 @@ use std::fs;
 
 #[derive(Default)]
 pub struct Document {
+    name: String,
     rows: Vec<Row>,
 }
 
@@ -16,7 +17,14 @@ impl Document {
             rows.push(Row::from(row));
         }
 
-        Ok(Self { rows })
+        Ok(Self {
+            name: String::from(filename),
+            rows,
+        })
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 
     pub fn row(&self, index: usize) -> Option<&Row> {

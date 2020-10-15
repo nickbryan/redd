@@ -1,11 +1,16 @@
 use crate::{
+    backend::CrosstermBackend,
     document::Document,
     event::{Event, Events, Key},
     row::Row,
     terminal::Terminal,
 };
 use anyhow::{Context, Result};
-use std::{env, time::Duration};
+use std::{
+    env,
+    io::{self, Stdout},
+    time::Duration,
+};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -17,7 +22,7 @@ pub struct Position {
 
 pub struct Editor {
     should_quit: bool,
-    terminal: Terminal,
+    terminal: Terminal<CrosstermBackend<Stdout>>,
     cursor_position: Position,
     offset: Position,
     document: Document,
@@ -34,9 +39,11 @@ impl Editor {
             Document::default()
         };
 
+        let backend = CrosstermBackend::new(io::stdout());
+
         Ok(Self {
             should_quit: false,
-            terminal: Terminal::new().context("unable to create Terminal")?,
+            terminal: Terminal::new(backend).context("unable to create Terminal")?,
             cursor_position: Position::default(),
             offset: Position::default(),
             document,
@@ -66,7 +73,7 @@ impl Editor {
     }
 
     fn move_cursor(&mut self, key: Key) -> Result<()> {
-        let terminal_height = self.terminal.size()?.height as usize;
+        let terminal_height = self.terminal.size()?.height();
         let Position { x, y } = self.cursor_position;
         let height = self.document.len();
         let width = if let Some(row) = self.document.row(y) {
@@ -115,7 +122,7 @@ impl Editor {
             }
             Key::PageDown => {
                 if y.saturating_add(terminal_height) < height {
-                    (x, y + terminal_height as usize)
+                    (x, y + terminal_height)
                 } else {
                     (x, height)
                 }
@@ -158,8 +165,8 @@ impl Editor {
 
     fn scroll(&mut self) -> Result<()> {
         let Position { x, y } = self.cursor_position;
-        let width = self.terminal.size()?.width as usize;
-        let height = self.terminal.size()?.height as usize;
+        let width = self.terminal.size()?.width();
+        let height = self.terminal.size()?.height();
 
         if y < self.offset.y {
             self.offset.y = y;
@@ -198,7 +205,7 @@ impl Editor {
 
     fn draw_welcome_message(&mut self) -> Result<()> {
         let mut welcome_message = format!("Redd editor -- version {}", VERSION);
-        let width = self.terminal.size()?.width as usize;
+        let width = self.terminal.size()?.width();
         let len = welcome_message.len();
         let padding = width.saturating_sub(len) / 2;
         let spaces = " ".repeat(padding.saturating_sub(1));
@@ -209,7 +216,7 @@ impl Editor {
     }
 
     fn draw_row(&self, row: &Row) -> Result<()> {
-        let width = self.terminal.size()?.width as usize;
+        let width = self.terminal.size()?.width();
         let start = self.offset.x;
         let end = self.offset.x + width;
         let row = row.render(start, end);
@@ -218,11 +225,10 @@ impl Editor {
     }
 
     fn draw_rows(&mut self) -> Result<()> {
-        let height = self.terminal.size()?.height;
+        let height = self.terminal.size()?.height();
 
         for terminal_row in 0..height {
-            self.terminal.clear_current_line()?;
-
+            self.terminal.clear_line()?;
             if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
                 self.draw_row(row).context("unable to draw row")?;
             } else if self.document.is_empty() && terminal_row == height / 3 {

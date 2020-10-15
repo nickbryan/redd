@@ -9,6 +9,5 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 crossterm = "0.18"
-tui = { version = "0.12", default-features = false, features = ['crossterm'] }
 unicode-segmentation = "1.6"
 

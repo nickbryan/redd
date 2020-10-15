@@ -1,8 +1,10 @@
+mod backend;
 mod document;
 mod editor;
 mod event;
 mod row;
 mod terminal;
+mod ui;
 
 use anyhow::Context;
 use editor::Editor;
