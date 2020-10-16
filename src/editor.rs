@@ -72,7 +72,7 @@ impl Editor {
     }
 
     fn move_cursor(&mut self, key: Key) -> Result<()> {
-        let terminal_height = self.terminal.size()?.height();
+        let terminal_height = self.terminal.size()?.height() - 2;
         let Position { x, y } = self.cursor_position;
         let height = self.document.len();
         let width = if let Some(row) = self.document.row(y) {
@@ -165,7 +165,7 @@ impl Editor {
     fn scroll(&mut self) -> Result<()> {
         let Position { x, y } = self.cursor_position;
         let width = self.terminal.size()?.width();
-        let height = self.terminal.size()?.height();
+        let height = self.terminal.size()?.height() - 2;
 
         if y < self.offset.y {
             self.offset.y = y;
@@ -195,7 +195,7 @@ impl Editor {
 
         self.terminal.draw(|view| {
             let width = view.area().width();
-            let height = view.area().height();
+            let height = view.area().height() - 2;
 
             for terminal_row in 0..height {
                 if let Some(row) = document.row(terminal_row as usize + offset.y) {
@@ -216,11 +216,10 @@ impl Editor {
                 }
             }
 
-            // TODO: u16 or usize?
-            view.set_cursor_position((
-                cursor_position.x.saturating_sub(offset.x) as u16,
-                cursor_position.y.saturating_sub(offset.y) as u16,
-            ));
+            view.set_cursor_position(&Position {
+                x: cursor_position.x.saturating_sub(offset.x),
+                y: cursor_position.y.saturating_sub(offset.y),
+            });
 
             Ok(())
         })

@@ -9,7 +9,7 @@ use crate::{
 use anyhow::{Context, Result};
 
 pub struct View<'a, B: Backend> {
-    cursor_position: (u16, u16),
+    cursor_position: Position,
     terminal: &'a mut Terminal<B>,
 }
 
@@ -18,16 +18,19 @@ impl<'a, B: Backend> View<'a, B> {
         self.terminal.viewport()
     }
 
-    pub fn cursor_position(&self) -> (u16, u16) {
-        self.cursor_position
+    pub fn cursor_position(&self) -> &Position {
+        &self.cursor_position
     }
 
     pub fn render<C: Component>(&mut self, component: C, area: Rect) {
         component.render(area, self.terminal.current_buffer_mut());
     }
 
-    pub fn set_cursor_position(&mut self, position: (u16, u16)) {
-        self.cursor_position = position;
+    pub fn set_cursor_position(&mut self, position: &Position) {
+        self.cursor_position = Position {
+            x: position.x,
+            y: position.y,
+        };
     }
 }
 
@@ -76,26 +79,25 @@ impl<B: Backend> Terminal<B> {
         F: FnOnce(&mut View<B>) -> Result<()>,
     {
         // TODO: remove this clear once we have buffer updating working
+        // TODO: is this what is causing the flicker? I think we need to clear each line at a time
+        // (diff stuff should hopefully take care of that)
         self.clear()?;
         self.hide_cursor()?;
         self.position_cursor(&Position::default())?;
 
         let mut view = View {
             terminal: self,
-            cursor_position: (0, 0),
+            cursor_position: Position::default(),
         };
 
         f(&mut view)?;
 
         // TODO: try and remove the tuple in favour of a Position object
-        let (x, y) = view.cursor_position();
+        let Position { x, y } = *view.cursor_position();
 
         self.flush()?;
 
-        self.position_cursor(&Position {
-            x: x as usize,
-            y: y as usize,
-        })?;
+        self.position_cursor(&Position { x, y })?;
 
         self.show_cursor()?;
 
@@ -127,12 +129,9 @@ impl<B: Backend> Terminal<B> {
     }
 
     pub fn size(&self) -> Result<Rect> {
-        let size = self
-            .backend
+        self.backend
             .size()
-            .context("unable to get size of terminal")?;
-
-        Ok(Rect::new(size.width(), size.height().saturating_sub(2)))
+            .context("unable to get size of terminal")
     }
 
     fn swap_buffers(&mut self) {
