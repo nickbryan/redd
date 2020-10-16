@@ -1,7 +1,11 @@
-use crate::{backend::Backend, ui::layout::Rect};
+use crate::{
+    backend::Backend,
+    ui::{buffer::Cell, layout::Rect},
+};
 use anyhow::Result;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
+    style::Print,
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::{self, Write};
@@ -35,6 +39,21 @@ impl<W: Write> Backend for CrosstermBackend<W> {
     fn clear_line(&mut self) -> Result<(), io::Error> {
         crossterm::queue!(self.buffer, Clear(ClearType::CurrentLine))
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    }
+
+    fn draw<'a, I>(&mut self, cells: I) -> Result<(), io::Error>
+    where
+        I: Iterator<Item = &'a Cell>,
+    {
+        for cell in cells {
+            panic!("SHIT THE BED!");
+            self.position_cursor(cell.position().x() as u16, cell.position().y() as u16)?;
+
+            crossterm::queue!(self.buffer, Print(cell.symbol()))
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        }
+
+        Ok(())
     }
 
     fn enable_raw_mode(&mut self) -> Result<(), io::Error> {

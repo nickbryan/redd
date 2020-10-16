@@ -2,7 +2,6 @@ use crate::{
     backend::CrosstermBackend,
     document::Document,
     event::{Event, Events, Key},
-    row::Row,
     terminal::Terminal,
 };
 use anyhow::{Context, Result};
@@ -184,60 +183,46 @@ impl Editor {
     }
 
     fn refresh_screen(&mut self) -> Result<()> {
-        self.terminal.hide_cursor()?;
-        self.terminal.position_cursor(&Position::default())?;
-
         if self.should_quit {
             self.terminal.clear()?;
             self.terminal.flush()?;
             return Ok(());
         }
 
-        self.draw_rows()?;
-        self.terminal.position_cursor(&Position {
-            x: self.cursor_position.x.saturating_sub(self.offset.x),
-            y: self.cursor_position.y.saturating_sub(self.offset.y),
-        })?;
+        let document = &self.document;
+        let offset = &self.offset;
+        let cursor_position = &self.cursor_position;
 
-        self.terminal.show_cursor()?;
-        self.terminal.flush()
-    }
+        self.terminal.draw(|view| {
+            let width = view.area().width();
+            let height = view.area().height();
 
-    fn draw_welcome_message(&mut self) -> Result<()> {
-        let mut welcome_message = format!("Redd editor -- version {}", VERSION);
-        let width = self.terminal.size()?.width();
-        let len = welcome_message.len();
-        let padding = width.saturating_sub(len) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-        welcome_message = format!("~{}{}", spaces, welcome_message);
-        welcome_message.truncate(width);
-        println!("{}\r", welcome_message);
-        Ok(())
-    }
-
-    fn draw_row(&self, row: &Row) -> Result<()> {
-        let width = self.terminal.size()?.width();
-        let start = self.offset.x;
-        let end = self.offset.x + width;
-        let row = row.render(start, end);
-        println!("{}\r", row);
-        Ok(())
-    }
-
-    fn draw_rows(&mut self) -> Result<()> {
-        let height = self.terminal.size()?.height();
-
-        for terminal_row in 0..height {
-            self.terminal.clear_line()?;
-            if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
-                self.draw_row(row).context("unable to draw row")?;
-            } else if self.document.is_empty() && terminal_row == height / 3 {
-                self.draw_welcome_message()?;
-            } else {
-                println!("~\r");
+            for terminal_row in 0..height {
+                if let Some(row) = document.row(terminal_row as usize + offset.y) {
+                    let start = offset.x;
+                    let end = offset.x + width;
+                    let row = row.render(start, end);
+                    println!("{}\r", row);
+                } else if document.is_empty() && terminal_row == height / 3 {
+                    let mut welcome_message = format!("Redd editor -- version {}", VERSION);
+                    let len = welcome_message.len();
+                    let padding = width.saturating_sub(len) / 2;
+                    let spaces = " ".repeat(padding.saturating_sub(1));
+                    welcome_message = format!("~{}{}", spaces, welcome_message);
+                    welcome_message.truncate(width);
+                    println!("{}\r", welcome_message);
+                } else {
+                    println!("~\r");
+                }
             }
-        }
 
-        Ok(())
+            // TODO: u16 or usize?
+            view.set_cursor_position((
+                cursor_position.x.saturating_sub(offset.x) as u16,
+                cursor_position.y.saturating_sub(offset.y) as u16,
+            ));
+
+            Ok(())
+        })
     }
 }
