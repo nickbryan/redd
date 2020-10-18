@@ -3,6 +3,10 @@ use crate::{
     document::Document,
     event::{Event, Events, Key},
     terminal::Terminal,
+    ui::{
+        layout::{Position, Rect},
+        text::DocumentView,
+    },
 };
 use anyhow::{Context, Result};
 use std::{
@@ -12,12 +16,6 @@ use std::{
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[derive(Default)]
-pub struct Position {
-    pub x: usize,
-    pub y: usize,
-}
 
 pub struct Editor {
     should_quit: bool,
@@ -72,7 +70,7 @@ impl Editor {
     }
 
     fn move_cursor(&mut self, key: Key) -> Result<()> {
-        let terminal_height = self.terminal.size()?.height() - 2;
+        let terminal_height = self.terminal.viewport().height() - 2;
         let Position { x, y } = self.cursor_position;
         let height = self.document.len();
         let width = if let Some(row) = self.document.row(y) {
@@ -164,20 +162,26 @@ impl Editor {
 
     fn scroll(&mut self) -> Result<()> {
         let Position { x, y } = self.cursor_position;
-        let width = self.terminal.size()?.width();
-        let height = self.terminal.size()?.height() - 2;
+        let width = self.terminal.viewport().width();
+        let height = self.terminal.viewport().height() - 2;
 
-        if y < self.offset.y {
-            self.offset.y = y;
+        let offset = if y < self.offset.y {
+            (self.offset.x, y)
         } else if y >= self.offset.y.saturating_add(height) {
-            self.offset.y = y.saturating_sub(height).saturating_add(1);
-        }
+            (self.offset.x, y.saturating_sub(height).saturating_add(1))
+        } else {
+            (self.offset.x, self.offset.y)
+        };
 
-        if x < self.offset.x {
-            self.offset.x = x;
+        let offset = if x < self.offset.x {
+            (x, offset.1)
         } else if x >= self.offset.x.saturating_add(width) {
-            self.offset.x = x.saturating_add(width).saturating_add(1);
-        }
+            (x.saturating_add(width).saturating_add(1), offset.1)
+        } else {
+            (self.offset.x, offset.1)
+        };
+
+        self.offset = Position::from(offset);
 
         Ok(())
     }
@@ -197,29 +201,34 @@ impl Editor {
             let width = view.area().width();
             let height = view.area().height() - 2;
 
-            for terminal_row in 0..height {
-                if let Some(row) = document.row(terminal_row as usize + offset.y) {
-                    let start = offset.x;
-                    let end = offset.x + width;
-                    let row = row.render(start, end);
-                    println!("{}\r", row);
-                } else if document.is_empty() && terminal_row == height / 3 {
-                    let mut welcome_message = format!("Redd editor -- version {}", VERSION);
-                    let len = welcome_message.len();
-                    let padding = width.saturating_sub(len) / 2;
-                    let spaces = " ".repeat(padding.saturating_sub(1));
-                    welcome_message = format!("~{}{}", spaces, welcome_message);
-                    welcome_message.truncate(width);
-                    println!("{}\r", welcome_message);
-                } else {
-                    println!("~\r");
-                }
-            }
+            view.render(
+                DocumentView::new(document, offset),
+                Rect::new(width, height),
+            );
 
-            view.set_cursor_position(&Position {
-                x: cursor_position.x.saturating_sub(offset.x),
-                y: cursor_position.y.saturating_sub(offset.y),
-            });
+            // for terminal_row in 0..height {
+            //     if let Some(row) = document.row(terminal_row as usize + offset.y()) {
+            //         let start = offset.x();
+            //         let end = offset.x() + width;
+            //         let row = row.render(start, end);
+            //         println!("{}\r", row);
+            //     } else if document.is_empty() && terminal_row == height / 3 {
+            //         let mut welcome_message = format!("Redd editor -- version {}", VERSION);
+            //         let len = welcome_message.len();
+            //         let padding = width.saturating_sub(len) / 2;
+            //         let spaces = " ".repeat(padding.saturating_sub(1));
+            //         welcome_message = format!("~{}{}", spaces, welcome_message);
+            //         welcome_message.truncate(width);
+            //         println!("{}\r", welcome_message);
+            //     } else {
+            //         println!("~\r");
+            //     }
+            // }
+
+            view.set_cursor_position(&Position::new(
+                cursor_position.x.saturating_sub(offset.x),
+                cursor_position.y.saturating_sub(offset.y),
+            ));
 
             Ok(())
         })
