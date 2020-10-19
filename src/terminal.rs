@@ -1,9 +1,8 @@
 use crate::{
     backend::Backend,
-    editor::Position,
     ui::{
         buffer::Buffer,
-        layout::{Component, Rect},
+        layout::{Component, Position, Rect},
     },
 };
 use anyhow::{Context, Result};
@@ -27,10 +26,7 @@ impl<'a, B: Backend> View<'a, B> {
     }
 
     pub fn set_cursor_position(&mut self, position: &Position) {
-        self.cursor_position = Position {
-            x: position.x,
-            y: position.y,
-        };
+        self.cursor_position = Position::from(*position);
     }
 }
 
@@ -81,7 +77,7 @@ impl<B: Backend> Terminal<B> {
         // TODO: remove this clear once we have buffer updating working
         // TODO: is this what is causing the flicker? I think we need to clear each line at a time
         // (diff stuff should hopefully take care of that)
-        self.clear()?;
+        // self.clear()?;
         self.hide_cursor()?;
         self.position_cursor(&Position::default())?;
 
@@ -92,7 +88,6 @@ impl<B: Backend> Terminal<B> {
 
         f(&mut view)?;
 
-        // TODO: try and remove the tuple in favour of a Position object
         let Position { x, y } = *view.cursor_position();
 
         self.flush()?;
@@ -126,12 +121,6 @@ impl<B: Backend> Terminal<B> {
 
     pub fn show_cursor(&mut self) -> Result<()> {
         self.backend.show_cursor().context("unable to show cursor")
-    }
-
-    pub fn size(&self) -> Result<Rect> {
-        self.backend
-            .size()
-            .context("unable to get size of terminal")
     }
 
     fn swap_buffers(&mut self) {

@@ -1,4 +1,6 @@
 use crate::ui::layout::{Position, Rect};
+use anyhow::Result;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cell {
@@ -27,7 +29,17 @@ impl Cell {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct OutOfBoundsError;
+
+impl Display for OutOfBoundsError {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f, "trying to access index out of bounds")
+    }
+}
+
 pub struct Buffer {
+    area: Rect,
     cells: Vec<Cell>,
 }
 
@@ -46,7 +58,7 @@ impl Buffer {
             }
         }
 
-        Self { cells }
+        Self { cells, area }
     }
 
     pub fn diff<'a>(&self, other: &'a Buffer) -> Vec<&'a Cell> {
@@ -63,9 +75,36 @@ impl Buffer {
         updates
     }
 
+    fn index_of(&self, position: &Position) -> Result<usize, OutOfBoundsError> {
+        if !self.area.contains(position) {
+            Err(OutOfBoundsError)
+        } else {
+            Ok((position.y - self.area.y()) * self.area.width() + (position.x - self.area.x()))
+        }
+    }
+
     pub fn reset(&mut self) {
         for cell in self.cells.iter_mut() {
             cell.reset();
+        }
+    }
+
+    pub fn write_line(&mut self, line_number: usize, string: String) {
+        let index = self.index_of(&Position::new(0, line_number)).unwrap();
+
+        let mut string_index = 0;
+        for i in index..index + string.len() {
+            self.cells[i] = Cell::new(
+                self.cells[i].position.x,
+                self.cells[i].position.y,
+                &string.chars().nth(string_index).unwrap().to_string(),
+            );
+
+            string_index += 1;
+        }
+
+        for i in index + string.len()..index + self.area.width() {
+            self.cells[i].reset();
         }
     }
 }

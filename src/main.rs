@@ -2,7 +2,6 @@ mod backend;
 mod document;
 mod editor;
 mod event;
-mod row;
 mod terminal;
 mod ui;
 

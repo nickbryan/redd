@@ -46,7 +46,7 @@ impl<W: Write> Backend for CrosstermBackend<W> {
         I: Iterator<Item = &'a Cell>,
     {
         for cell in cells {
-            self.position_cursor(cell.position().x() as u16, cell.position().y() as u16)?;
+            self.position_cursor(cell.position().x as u16, cell.position().y as u16)?;
 
             crossterm::queue!(self.buffer, Print(cell.symbol()))
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
