@@ -1,11 +1,11 @@
 use crate::{
     backend::Backend,
-    ui::{buffer::Cell, layout::Rect},
+    ui::{buffer::Cell, layout::Rect, style::Color},
 };
 use anyhow::Result;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
-    style::Print,
+    style::{Color as CrosstermColor, Print, SetBackgroundColor, SetForegroundColor},
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::{self, Write};
@@ -45,14 +45,42 @@ impl<W: Write> Backend for CrosstermBackend<W> {
     where
         I: Iterator<Item = &'a Cell>,
     {
+        let mut prev_bg = Color::Reset;
+        let mut prev_fg = Color::Reset;
+
         for cell in cells {
             self.position_cursor(cell.position().x as u16, cell.position().y as u16)?;
+
+            if cell.style().background() != prev_bg {
+                crossterm::queue!(
+                    self.buffer,
+                    SetBackgroundColor(CrosstermColor::from(cell.style().background()))
+                )
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+                prev_bg = cell.style().background();
+            }
+
+            if cell.style().foreground() != prev_fg {
+                crossterm::queue!(
+                    self.buffer,
+                    SetForegroundColor(CrosstermColor::from(cell.style().foreground()))
+                )
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+
+                prev_fg = cell.style().foreground();
+            }
 
             crossterm::queue!(self.buffer, Print(cell.symbol()))
                 .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
         }
 
-        Ok(())
+        crossterm::queue!(
+            self.buffer,
+            SetBackgroundColor(CrosstermColor::from(Color::Reset)),
+            SetForegroundColor(CrosstermColor::from(Color::Reset)),
+        )
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
     }
 
     fn enable_raw_mode(&mut self) -> Result<(), io::Error> {
@@ -99,5 +127,31 @@ impl<W: Write> Backend for CrosstermBackend<W> {
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
         Ok(Rect::new(usize::from(width), usize::from(height)))
+    }
+}
+
+impl From<Color> for CrosstermColor {
+    fn from(color: Color) -> Self {
+        match color {
+            Color::Reset => CrosstermColor::Reset,
+            Color::Black => CrosstermColor::Black,
+            Color::Red => CrosstermColor::DarkRed,
+            Color::Green => CrosstermColor::DarkGreen,
+            Color::Yellow => CrosstermColor::DarkYellow,
+            Color::Blue => CrosstermColor::DarkBlue,
+            Color::Magenta => CrosstermColor::DarkMagenta,
+            Color::Cyan => CrosstermColor::DarkCyan,
+            Color::Gray => CrosstermColor::Grey,
+            Color::DarkGray => CrosstermColor::DarkGrey,
+            Color::LightRed => CrosstermColor::Red,
+            Color::LightGreen => CrosstermColor::Green,
+            Color::LightBlue => CrosstermColor::Blue,
+            Color::LightYellow => CrosstermColor::Yellow,
+            Color::LightMagenta => CrosstermColor::Magenta,
+            Color::LightCyan => CrosstermColor::Cyan,
+            Color::White => CrosstermColor::White,
+            Color::AnsiValue(v) => CrosstermColor::AnsiValue(v),
+            Color::Rgb(r, g, b) => CrosstermColor::Rgb { r, g, b },
+        }
     }
 }

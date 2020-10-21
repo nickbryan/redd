@@ -1,4 +1,7 @@
-use crate::ui::layout::{Position, Rect};
+use crate::{
+    ui::layout::{Position, Rect},
+    ui::style::Style,
+};
 use anyhow::Result;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
@@ -6,13 +9,15 @@ use std::fmt::{Display, Formatter, Result as FmtResult};
 pub struct Cell {
     position: Position,
     symbol: String,
+    style: Style,
 }
 
 impl Cell {
-    pub fn new(x: usize, y: usize, symbol: &str) -> Self {
+    pub fn new(x: usize, y: usize, symbol: &str, style: Style) -> Self {
         Self {
             position: Position::new(x, y),
             symbol: symbol.into(),
+            style,
         }
     }
 
@@ -26,6 +31,10 @@ impl Cell {
 
     pub fn symbol(&self) -> &String {
         &self.symbol
+    }
+
+    pub fn style(&self) -> &Style {
+        &self.style
     }
 }
 
@@ -54,7 +63,7 @@ impl Buffer {
 
         for y in 0..area.height() {
             for x in 0..area.width() {
-                cells.push(Cell::new(x, y, symbol));
+                cells.push(Cell::new(x, y, symbol, Style::default()));
             }
         }
 
@@ -89,7 +98,7 @@ impl Buffer {
         }
     }
 
-    pub fn write_line(&mut self, line_number: usize, string: String) {
+    pub fn write_line(&mut self, line_number: usize, string: String, style: Style) {
         let index = self.index_of(&Position::new(0, line_number)).unwrap();
 
         let mut string_index = 0;
@@ -98,6 +107,7 @@ impl Buffer {
                 self.cells[i].position.x,
                 self.cells[i].position.y,
                 &string.chars().nth(string_index).unwrap().to_string(),
+                style.clone(),
             );
 
             string_index += 1;

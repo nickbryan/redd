@@ -2,6 +2,7 @@ use crate::{
     document::Document,
     ui::buffer::Buffer,
     ui::layout::{Component, Position, Rect},
+    ui::style::Style,
 };
 
 pub struct DocumentView<'a> {
@@ -25,7 +26,7 @@ impl<'a> Component for DocumentView<'a> {
                 let start = self.offset.x;
                 let end = self.offset.x + area.width();
                 let row = row.to_string(start, end);
-                buffer.write_line(terminal_row, row);
+                buffer.write_line(terminal_row, row, Style::default());
             }
         }
     }

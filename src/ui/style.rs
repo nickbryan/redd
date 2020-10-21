@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Color {
     Reset,
     Black,
@@ -20,24 +21,34 @@ pub enum Color {
     AnsiValue(u8),
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Style {
-    foreground: Option<Color>,
-    background: Option<Color>,
+    foreground: Color,
+    background: Color,
 }
 
 impl Style {
-    pub fn new(foreground: Option<Color>, background: Option<Color>) -> Self {
+    pub fn new(foreground: Color, background: Color) -> Self {
         Self {
             foreground,
             background,
         }
     }
 
-    pub fn foreground(&self) -> Option<&Color> {
-        self.foreground.as_ref()
+    pub fn foreground(&self) -> Color {
+        self.foreground
     }
 
-    pub fn background(&self) -> Option<&Color> {
-        self.background.as_ref()
+    pub fn background(&self) -> Color {
+        self.background
+    }
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            foreground: Color::Reset,
+            background: Color::Reset,
+        }
     }
 }

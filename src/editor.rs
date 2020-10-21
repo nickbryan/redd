@@ -5,6 +5,7 @@ use crate::{
     terminal::Terminal,
     ui::{
         layout::{Position, Rect},
+        status_bar::StatusBar,
         text::DocumentView,
     },
 };
@@ -206,6 +207,10 @@ impl Editor {
                 Rect::new(width, height),
             );
 
+            view.render(
+                StatusBar::new(),
+                Rect::positioned(width, 1, &Position::new(0, view.area().height() - 2)),
+            );
             // for terminal_row in 0..height {
             //     if let Some(row) = document.row(terminal_row as usize + offset.y()) {
             //         let start = offset.x();
