@@ -53,7 +53,7 @@ impl From<&str> for Row {
 
 #[derive(Default)]
 pub struct Document {
-    name: String,
+    file_name: Option<String>,
     rows: Vec<Row>,
 }
 
@@ -67,21 +67,17 @@ impl Document {
         }
 
         Ok(Self {
-            name: String::from(filename),
+            file_name: Some(String::from(filename)),
             rows,
         })
     }
 
-    pub fn name(&self) -> &String {
-        &self.name
+    pub fn file_name(&self) -> Option<&String> {
+        self.file_name.as_ref()
     }
 
     pub fn row(&self, index: usize) -> Option<&Row> {
         self.rows.get(index)
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.rows.is_empty()
     }
 
     pub fn len(&self) -> usize {

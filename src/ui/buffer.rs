@@ -106,6 +106,8 @@ impl Buffer {
             self.cells[i] = Cell::new(
                 self.cells[i].position.x,
                 self.cells[i].position.y,
+                // TODO: this panics when using characters like – en dash (i assume it takes up
+                // more space, thought the graphemes were handling this though)
                 &string.chars().nth(string_index).unwrap().to_string(),
                 style.clone(),
             );

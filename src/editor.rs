@@ -207,8 +207,17 @@ impl Editor {
                 Rect::new(width, height),
             );
 
+            let file_name = document
+                .file_name()
+                .unwrap_or(&"[No Name]".to_string())
+                .clone();
+
             view.render(
-                StatusBar::new(),
+                StatusBar::new(
+                    file_name,
+                    document.len(),
+                    cursor_position.y.saturating_add(1),
+                ),
                 Rect::positioned(width, 1, &Position::new(0, view.area().height() - 2)),
             );
             // for terminal_row in 0..height {
