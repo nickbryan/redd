@@ -4,6 +4,7 @@ use crate::{
 };
 use anyhow::Result;
 use std::fmt::{Display, Formatter, Result as FmtResult};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Cell {
@@ -101,21 +102,17 @@ impl Buffer {
     pub fn write_line(&mut self, line_number: usize, string: String, style: Style) {
         let index = self.index_of(&Position::new(0, line_number)).unwrap();
 
-        let mut string_index = 0;
-        for i in index..index + string.len() {
-            self.cells[i] = Cell::new(
-                self.cells[i].position.x,
-                self.cells[i].position.y,
-                // TODO: this panics when using characters like – en dash (i assume it takes up
-                // more space, thought the graphemes were handling this though)
-                &string.chars().nth(string_index).unwrap().to_string(),
+        for (i, grapheme) in string[..].graphemes(true).enumerate() {
+            let cell_idx = index + i;
+            self.cells[cell_idx] = Cell::new(
+                self.cells[cell_idx].position.x,
+                self.cells[cell_idx].position.y,
+                &grapheme,
                 style.clone(),
             );
-
-            string_index += 1;
         }
 
-        for i in index + string.len()..index + self.area.width() {
+        for i in index + string[..].graphemes(true).count()..index + self.area.width() {
             self.cells[i].reset();
         }
     }
