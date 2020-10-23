@@ -70,10 +70,6 @@ impl<B: Backend> Terminal<B> {
     where
         F: FnOnce(&mut View<B>) -> Result<()>,
     {
-        // TODO: remove this clear once we have buffer updating working
-        // TODO: is this what is causing the flicker? I think we need to clear each line at a time
-        // (diff stuff should hopefully take care of that)
-        // self.clear()?;
         self.hide_cursor()?;
         self.position_cursor(&Position::default())?;
 

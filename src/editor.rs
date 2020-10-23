@@ -151,6 +151,14 @@ impl Editor {
     fn proccess_keypress(&mut self, key: Key) -> Result<()> {
         match key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Char(ch) => {
+                self.document
+                    .insert(&self.cursor_position, ch)
+                    .context("unable to insert character in document")?;
+
+                self.move_cursor(Key::Right)
+                    .context("unable to move cursor to the right")?;
+            }
             Key::Up
             | Key::Down
             | Key::Left

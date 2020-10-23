@@ -1,9 +1,11 @@
-use anyhow::{Context, Result};
+use crate::ui::layout::Position;
+use anyhow::{Context, Error, Result};
 use std::fs;
 
 use std::cmp;
 use unicode_segmentation::UnicodeSegmentation;
 
+#[derive(Debug, Default)]
 pub struct Row {
     string: String,
     len: usize,
@@ -28,6 +30,23 @@ impl Row {
         }
 
         result
+    }
+
+    pub fn insert(&mut self, at: usize, ch: char) {
+        if at >= self.len() {
+            self.string.push(ch);
+            self.update_len();
+            return;
+        }
+
+        let mut result: String = self.string[..].graphemes(true).take(at).collect();
+        let remainder: String = self.string[..].graphemes(true).skip(at).collect();
+
+        result.push(ch);
+        result.push_str(&remainder);
+        self.string = result;
+
+        self.update_len();
     }
 
     pub fn len(&self) -> usize {
@@ -70,6 +89,26 @@ impl Document {
             file_name: Some(String::from(filename)),
             rows,
         })
+    }
+
+    pub fn insert(&mut self, at: &Position, ch: char) -> Result<()> {
+        if at.y == self.len() {
+            let mut row = Row::default();
+            row.insert(0, ch);
+            self.rows.push(row);
+
+            Ok(())
+        } else if at.y < self.len() {
+            let row = self.rows.get_mut(at.y).unwrap();
+            row.insert(at.x, ch);
+
+            Ok(())
+        } else {
+            Err(Error::from(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "trying to insert character past current string length",
+            )))
+        }
     }
 
     pub fn file_name(&self) -> Option<&String> {
