@@ -1,5 +1,4 @@
 use anyhow::{Error, Result};
-use std::io;
 
 mod crossterm;
 pub use self::crossterm::CrosstermEventLoop;

@@ -29,15 +29,15 @@ impl Component for StatusBar {
 
         let len = status.len() + line_indicator.len();
 
-        if area.width() > len {
-            status.push_str(&" ".repeat(area.width() - len));
+        if area.width > len {
+            status.push_str(&" ".repeat(area.width - len));
         }
 
         status = format!("{}{}", status, line_indicator);
-        status.truncate(area.width());
+        status.truncate(area.width);
 
         buffer.write_line(
-            area.y(),
+            area.top(),
             status,
             Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
         );

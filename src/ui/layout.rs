@@ -24,9 +24,9 @@ impl From<(usize, usize)> for Position {
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub struct Rect {
-    width: usize,
-    height: usize,
-    position: Position,
+    pub width: usize,
+    pub height: usize,
+    pub position: Position,
 }
 
 impl Rect {
@@ -38,32 +38,16 @@ impl Rect {
         }
     }
 
-    pub fn positioned(width: usize, height: usize, position: &Position) -> Self {
+    pub fn positioned(width: usize, height: usize, x: usize, y: usize) -> Self {
         Self {
             width,
             height,
-            position: Position::from(*position),
+            position: Position::new(x, y),
         }
     }
 
-    pub fn height(&self) -> usize {
-        self.height
-    }
-
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    pub fn x(&self) -> usize {
-        self.position.x
-    }
-
-    pub fn y(&self) -> usize {
-        self.position.y
-    }
-
     pub fn area(&self) -> usize {
-        self.width().saturating_mul(self.height())
+        self.width.saturating_mul(self.height)
     }
 
     pub fn left(&self) -> usize {
@@ -71,7 +55,7 @@ impl Rect {
     }
 
     pub fn right(&self) -> usize {
-        self.position.x + self.width()
+        self.position.x + self.width
     }
 
     pub fn top(&self) -> usize {
@@ -79,7 +63,7 @@ impl Rect {
     }
 
     pub fn bottom(&self) -> usize {
-        self.position.y + self.height()
+        self.position.y + self.height
     }
 
     pub fn contains(&self, position: &Position) -> bool {

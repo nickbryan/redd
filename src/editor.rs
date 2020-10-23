@@ -9,6 +9,7 @@ use crate::{
         layout::{Position, Rect},
         status_bar::StatusBar,
         text::DocumentView,
+        welcome::WelcomeScreen,
     },
 };
 use anyhow::{Context, Result};
@@ -17,8 +18,6 @@ use std::{
     io::{self, Stdout},
     time::Duration,
 };
-
-const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Editor {
     terminal: Terminal<CrosstermBackend<Stdout>>,
@@ -76,7 +75,7 @@ impl Editor {
     }
 
     fn move_cursor(&mut self, key: Key) -> Result<()> {
-        let terminal_height = self.terminal.viewport().height() - 2;
+        let terminal_height = self.terminal.viewport().height - 2;
         let Position { x, y } = self.cursor_position;
         let height = self.document.len();
         let width = if let Some(row) = self.document.row(y) {
@@ -168,8 +167,8 @@ impl Editor {
 
     fn scroll(&mut self) -> Result<()> {
         let Position { x, y } = self.cursor_position;
-        let width = self.terminal.viewport().width();
-        let height = self.terminal.viewport().height() - 2;
+        let width = self.terminal.viewport().width;
+        let height = self.terminal.viewport().height - 2;
 
         let offset = if y < self.offset.y {
             (self.offset.x, y)
@@ -204,45 +203,31 @@ impl Editor {
         let cursor_position = &self.cursor_position;
 
         self.terminal.draw(|view| {
-            let width = view.area().width();
-            let height = view.area().height() - 2;
+            let width = view.area().width;
+            let height = view.area().height - 2;
 
-            view.render(
-                DocumentView::new(document, offset),
-                Rect::new(width, height),
-            );
+            if document.is_empty() {
+                view.render(WelcomeScreen {}, view.area());
+            } else {
+                view.render(
+                    DocumentView::new(document, offset),
+                    Rect::new(width, height),
+                );
 
-            let file_name = document
-                .file_name()
-                .unwrap_or(&"[No Name]".to_string())
-                .clone();
+                let file_name = document
+                    .file_name()
+                    .unwrap_or(&"[No Name]".to_string())
+                    .clone();
 
-            view.render(
-                StatusBar::new(
-                    file_name,
-                    document.len(),
-                    cursor_position.y.saturating_add(1),
-                ),
-                Rect::positioned(width, 1, &Position::new(0, view.area().height() - 2)),
-            );
-            // for terminal_row in 0..height {
-            //     if let Some(row) = document.row(terminal_row as usize + offset.y()) {
-            //         let start = offset.x();
-            //         let end = offset.x() + width;
-            //         let row = row.render(start, end);
-            //         println!("{}\r", row);
-            //     } else if document.is_empty() && terminal_row == height / 3 {
-            //         let mut welcome_message = format!("Redd editor -- version {}", VERSION);
-            //         let len = welcome_message.len();
-            //         let padding = width.saturating_sub(len) / 2;
-            //         let spaces = " ".repeat(padding.saturating_sub(1));
-            //         welcome_message = format!("~{}{}", spaces, welcome_message);
-            //         welcome_message.truncate(width);
-            //         println!("{}\r", welcome_message);
-            //     } else {
-            //         println!("~\r");
-            //     }
-            // }
+                view.render(
+                    StatusBar::new(
+                        file_name,
+                        document.len(),
+                        cursor_position.y.saturating_add(1),
+                    ),
+                    Rect::positioned(width, 1, 0, view.area().height - 2),
+                );
+            }
 
             view.set_cursor_position(&Position::new(
                 cursor_position.x.saturating_sub(offset.x),

@@ -21,12 +21,14 @@ impl<'a> DocumentView<'a> {
 
 impl<'a> Component for DocumentView<'a> {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
-        for terminal_row in 0..area.height() {
+        for terminal_row in 0..area.height {
             if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
                 let start = self.offset.x;
-                let end = self.offset.x + area.width();
+                let end = self.offset.x + area.width;
                 let row = row.to_string(start, end);
                 buffer.write_line(terminal_row, row, Style::default());
+            } else {
+                buffer.write_line(terminal_row, "~".into(), Style::default());
             }
         }
     }

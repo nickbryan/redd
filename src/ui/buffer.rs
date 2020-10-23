@@ -62,8 +62,8 @@ impl Buffer {
         let size = area.area();
         let mut cells = Vec::with_capacity(size);
 
-        for y in 0..area.height() {
-            for x in 0..area.width() {
+        for y in 0..area.height {
+            for x in 0..area.width {
                 cells.push(Cell::new(x, y, symbol, Style::default()));
             }
         }
@@ -89,7 +89,8 @@ impl Buffer {
         if !self.area.contains(position) {
             Err(OutOfBoundsError)
         } else {
-            Ok((position.y - self.area.y()) * self.area.width() + (position.x - self.area.x()))
+            Ok((position.y - self.area.position.y) * self.area.width
+                + (position.x - self.area.position.x))
         }
     }
 
@@ -112,7 +113,7 @@ impl Buffer {
             );
         }
 
-        for i in index + string[..].graphemes(true).count()..index + self.area.width() {
+        for i in index + string[..].graphemes(true).count()..index + self.area.width {
             self.cells[i].reset();
         }
     }
