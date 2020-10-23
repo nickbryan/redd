@@ -8,7 +8,10 @@ use crossterm::{
     style::{Color as CrosstermColor, Print, SetBackgroundColor, SetForegroundColor},
     terminal::{Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::io::{self, Write};
+use std::{
+    io::{self, Write},
+    time::Duration,
+};
 
 pub struct CrosstermBackend<W: Write> {
     buffer: W,
@@ -104,6 +107,11 @@ impl<W: Write> Backend for CrosstermBackend<W> {
 
     fn hide_cursor(&mut self) -> Result<(), io::Error> {
         crossterm::queue!(self.buffer, Hide)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    }
+
+    fn poll_events(&mut self, timeout: Duration) -> Result<bool, io::Error> {
+        crossterm::event::poll(timeout)
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
     }
 

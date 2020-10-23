@@ -1,7 +1,9 @@
 use crate::{
     document::Document,
-    event::{Event, Events, Key},
-    io::CrosstermBackend,
+    io::{
+        event::{CrosstermEventLoop, Event, EventLoop, Key},
+        CrosstermBackend,
+    },
     terminal::Terminal,
     ui::{
         layout::{Position, Rect},
@@ -19,11 +21,12 @@ use std::{
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub struct Editor {
-    should_quit: bool,
     terminal: Terminal<CrosstermBackend<Stdout>>,
+    event_loop: Box<dyn EventLoop>,
     cursor_position: Position,
-    offset: Position,
     document: Document,
+    offset: Position,
+    should_quit: bool,
 }
 
 impl Editor {
@@ -38,18 +41,20 @@ impl Editor {
         };
 
         let backend = CrosstermBackend::new(io::stdout());
+        let event_loop = Box::new(CrosstermEventLoop::new(Duration::from_millis(250)));
 
         Ok(Self {
-            should_quit: false,
             terminal: Terminal::new(backend).context("unable to create Terminal")?,
+            event_loop,
             cursor_position: Position::default(),
-            offset: Position::default(),
             document,
+            offset: Position::default(),
+            should_quit: false,
         })
     }
 
     pub fn run(&mut self) -> Result<()> {
-        let events = Events::listen(Duration::from_millis(250));
+        self.event_loop.start();
 
         loop {
             self.refresh_screen().context("unable to refresh screen")?;
@@ -58,7 +63,7 @@ impl Editor {
                 break;
             }
 
-            match events.next()? {
+            match self.event_loop.next()? {
                 Event::Input(key) => self
                     .proccess_keypress(key)
                     .context("unable to process key press")?,

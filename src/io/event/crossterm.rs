@@ -1,24 +1,66 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::io::event::{Event, EventLoop, Key};
+use anyhow::{Context, Error, Result};
+use crossterm::event::{self as ctevent, KeyCode, KeyEvent, KeyModifiers};
+use std::{
+    sync::mpsc::{self, Receiver},
+    thread,
+    time::Duration,
+};
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum Key {
-    Enter,
-    Tab,
-    Backspace,
-    Esc,
-    Left,
-    Right,
-    Up,
-    Down,
-    Insert,
-    Delete,
-    Home,
-    End,
-    PageUp,
-    PageDown,
-    Char(char),
-    Ctrl(char),
-    Unknown,
+pub struct CrosstermEventLoop {
+    rx: Option<Receiver<Event>>,
+    tick_rate: Duration,
+}
+
+impl CrosstermEventLoop {
+    pub fn new(tick_rate: Duration) -> Self {
+        Self {
+            rx: None,
+            tick_rate,
+        }
+    }
+}
+
+impl EventLoop for CrosstermEventLoop {
+    fn start(&mut self) {
+        let (tx, rx) = mpsc::channel();
+        let tick_rate = self.tick_rate;
+
+        thread::spawn(move || loop {
+            match ctevent::poll(tick_rate) {
+                Ok(true) => match ctevent::read() {
+                    Ok(ctevent::Event::Key(key)) => tx.send(Event::Input(Key::from(key))).unwrap(),
+                    Err(e) => {
+                        tx.send(Event::Error(Error::from(e).context("unable to read event")))
+                            .unwrap();
+
+                        break;
+                    }
+                    _ => tx.send(Event::Tick).unwrap(),
+                },
+                Err(e) => {
+                    tx.send(Event::Error(
+                        Error::from(e).context("unable to poll for events"),
+                    ))
+                    .unwrap();
+
+                    break;
+                }
+                _ => {}
+            };
+        });
+
+        self.rx = Some(rx);
+    }
+
+    fn next(&self) -> Result<Event> {
+        match self.rx.as_ref() {
+            Some(rx) => rx
+                .recv()
+                .context("trying to read from event loop that has not been started yet"),
+            None => panic!("trying to read from event loop that has not been started yet"),
+        }
+    }
 }
 
 impl From<KeyEvent> for Key {

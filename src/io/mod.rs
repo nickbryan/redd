@@ -1,8 +1,10 @@
 use crate::ui::{buffer::Cell, layout::Rect};
 use anyhow::Result;
-use std::io;
+use std::{io, time::Duration};
 
 mod crossterm;
+pub mod event;
+
 pub use self::crossterm::CrosstermBackend;
 
 pub trait Backend {
@@ -14,6 +16,7 @@ pub trait Backend {
     fn flush(&mut self) -> Result<(), io::Error>;
     fn leave_alterante_screen(&mut self) -> Result<(), io::Error>;
     fn hide_cursor(&mut self) -> Result<(), io::Error>;
+    fn poll_events(&mut self, timeout: Duration) -> Result<bool, io::Error>;
     fn position_cursor(&mut self, x: u16, y: u16) -> Result<(), io::Error>;
     fn show_cursor(&mut self) -> Result<(), io::Error>;
     fn size(&self) -> Result<Rect, io::Error>;
