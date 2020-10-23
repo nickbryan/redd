@@ -1,5 +1,5 @@
 use crate::{
-    backend::Backend,
+    io::Backend,
     ui::{buffer::Cell, layout::Rect, style::Color},
 };
 use anyhow::Result;
@@ -33,11 +33,6 @@ impl<W: Write> Write for CrosstermBackend<W> {
 impl<W: Write> Backend for CrosstermBackend<W> {
     fn clear(&mut self) -> Result<(), io::Error> {
         crossterm::queue!(self.buffer, Clear(ClearType::All))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
-    }
-
-    fn clear_line(&mut self) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, Clear(ClearType::CurrentLine))
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
     }
 

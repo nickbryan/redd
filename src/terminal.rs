@@ -1,5 +1,5 @@
 use crate::{
-    backend::Backend,
+    io::Backend,
     ui::{
         buffer::Buffer,
         layout::{Component, Position, Rect},
@@ -60,10 +60,6 @@ impl<B: Backend> Terminal<B> {
 
     pub fn clear(&mut self) -> Result<()> {
         self.backend.clear().context("unable to clear screen")
-    }
-
-    pub fn clear_line(&mut self) -> Result<()> {
-        self.backend.clear_line().context("unable to clear line")
     }
 
     pub fn current_buffer_mut(&mut self) -> &mut Buffer {

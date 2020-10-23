@@ -1,7 +1,7 @@
 use crate::{
-    backend::CrosstermBackend,
     document::Document,
     event::{Event, Events, Key},
+    io::CrosstermBackend,
     terminal::Terminal,
     ui::{
         layout::{Position, Rect},
