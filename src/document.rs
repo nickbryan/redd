@@ -32,6 +32,20 @@ impl Row {
         result
     }
 
+    pub fn delete(&mut self, at: usize) {
+        if at >= self.len() {
+            self.update_len();
+            return;
+        }
+
+        let mut result: String = self.string[..].graphemes(true).take(at).collect();
+        let remainder: String = self.string[..].graphemes(true).skip(at + 1).collect();
+        result.push_str(&remainder);
+        self.string = result;
+
+        self.update_len();
+    }
+
     pub fn insert(&mut self, at: usize, ch: char) {
         if at >= self.len() {
             self.string.push(ch);
@@ -89,6 +103,15 @@ impl Document {
             file_name: Some(String::from(filename)),
             rows,
         })
+    }
+
+    pub fn delete(&mut self, at: &Position) {
+        if at.y >= self.len() {
+            return;
+        }
+
+        let row = self.rows.get_mut(at.y).unwrap();
+        row.delete(at.x);
     }
 
     pub fn insert(&mut self, at: &Position, ch: char) -> Result<()> {

@@ -159,6 +159,14 @@ impl Editor {
                 self.move_cursor(Key::Right)
                     .context("unable to move cursor to the right")?;
             }
+            Key::Delete => self.document.delete(&self.cursor_position),
+            Key::Backspace => {
+                if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
+                    self.move_cursor(Key::Left)
+                        .context("unable to move cursor to the left")?;
+                    self.document.delete(&self.cursor_position);
+                }
+            }
             Key::Up
             | Key::Down
             | Key::Left
