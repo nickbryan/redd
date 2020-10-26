@@ -32,6 +32,11 @@ impl Row {
         result
     }
 
+    pub fn append(&mut self, new: &Self) {
+        self.string = format!("{}{}", self.string, new.string);
+        self.update_len();
+    }
+
     pub fn delete(&mut self, at: usize) {
         if at >= self.len() {
             self.update_len();
@@ -107,6 +112,13 @@ impl Document {
 
     pub fn delete(&mut self, at: &Position) {
         if at.y >= self.len() {
+            return;
+        }
+
+        if at.x == self.rows.get_mut(at.y).unwrap().len() && at.y < self.len() - 1 {
+            let next_row = self.rows.remove(at.y + 1);
+            let row = self.rows.get_mut(at.y).unwrap();
+            row.append(&next_row);
             return;
         }
 
