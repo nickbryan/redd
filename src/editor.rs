@@ -167,6 +167,13 @@ impl Editor {
                     self.document.delete(&self.cursor_position);
                 }
             }
+            Key::Enter => {
+                self.document.insert_newline(&self.cursor_position);
+                self.move_cursor(Key::Down)
+                    .context("unable to move to new line")?;
+                self.move_cursor(Key::Home)
+                    .context("unable to move to start of new line")?;
+            }
             Key::Up
             | Key::Down
             | Key::Left

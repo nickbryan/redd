@@ -68,6 +68,14 @@ impl Row {
         self.update_len();
     }
 
+    pub fn split(&mut self, at: usize) -> Self {
+        let beginning: String = self.string[..].graphemes(true).take(at).collect();
+        let remainder: String = self.string[..].graphemes(true).skip(at).collect();
+        self.string = beginning;
+        self.update_len();
+        Self::from(&remainder[..])
+    }
+
     pub fn len(&self) -> usize {
         self.len
     }
@@ -144,6 +152,20 @@ impl Document {
                 "trying to insert character past current string length",
             )))
         }
+    }
+
+    pub fn insert_newline(&mut self, at: &Position) {
+        if at.y > self.len() {
+            return;
+        }
+
+        if at.y == self.len() {
+            self.rows.push(Row::default());
+            return;
+        }
+
+        let new_row = self.rows.get_mut(at.y).unwrap().split(at.x);
+        self.rows.insert(at.y + 1, new_row);
     }
 
     pub fn file_name(&self) -> Option<&String> {
