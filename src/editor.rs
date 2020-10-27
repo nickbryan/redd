@@ -151,6 +151,7 @@ impl Editor {
     fn proccess_keypress(&mut self, key: Key) -> Result<()> {
         match key {
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Ctrl('s') => self.document.save().context("unable to save document")?,
             Key::Char(ch) => {
                 self.document
                     .insert(&self.cursor_position, ch)

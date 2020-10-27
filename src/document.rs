@@ -83,6 +83,10 @@ impl Row {
     fn update_len(&mut self) {
         self.len = self.string[..].graphemes(true).count()
     }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        self.string.as_bytes()
+    }
 }
 
 impl From<&str> for Row {
@@ -116,6 +120,20 @@ impl Document {
             file_name: Some(String::from(filename)),
             rows,
         })
+    }
+
+    pub fn save(&self) -> Result<(), std::io::Error> {
+        use {std::fs::File, std::io::Write};
+
+        if let Some(file_name) = &self.file_name {
+            let mut file = File::create(file_name)?;
+            for row in &self.rows {
+                file.write_all(row.as_bytes())?;
+                file.write_all(b"\n")?;
+            }
+        }
+
+        Ok(())
     }
 
     pub fn delete(&mut self, at: &Position) {
