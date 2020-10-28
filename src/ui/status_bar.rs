@@ -8,36 +8,38 @@ pub struct StatusBar {
     file_name: String,
     lines: usize,
     current_line: usize,
+    viewport: Rect,
 }
 
 impl StatusBar {
-    pub fn new(mut file_name: String, lines: usize, current_line: usize) -> Self {
+    pub fn new(viewport: Rect, mut file_name: String, lines: usize, current_line: usize) -> Self {
         file_name.truncate(20);
 
         Self {
             file_name,
             lines,
             current_line,
+            viewport,
         }
     }
 }
 
 impl Component for StatusBar {
-    fn render(&self, area: Rect, buffer: &mut FrameBuffer) {
+    fn render(&self, buffer: &mut FrameBuffer) {
         let mut status = format!("File: {}", self.file_name);
         let line_indicator = format!("{}/{}", self.current_line, self.lines);
 
         let len = status.len() + line_indicator.len();
 
-        if area.width > len {
-            status.push_str(&" ".repeat(area.width - len));
+        if self.viewport.width > len {
+            status.push_str(&" ".repeat(self.viewport.width - len));
         }
 
         status = format!("{}{}", status, line_indicator);
-        status.truncate(area.width);
+        status.truncate(self.viewport.width);
 
         buffer.write_line(
-            area.top(),
+            self.viewport.top(),
             &status,
             &Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
         );

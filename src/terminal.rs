@@ -21,8 +21,8 @@ impl<'a, B: Backend> View<'a, B> {
         &self.cursor_position
     }
 
-    pub fn render<C: Component>(&mut self, component: &C, area: Rect) {
-        component.render(area, self.terminal.current_buffer_mut());
+    pub fn render<C: Component>(&mut self, component: &C) {
+        component.render(self.terminal.current_buffer_mut());
     }
 
     pub fn set_cursor_position(&mut self, position: Position) {
