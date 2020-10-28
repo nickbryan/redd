@@ -1,4 +1,4 @@
-use crate::io::event::{Event, EventLoop, Key};
+use crate::io::event::{Event, Key, Loop as EventLoop};
 use anyhow::{Context, Error, Result};
 use crossterm::event::{self as ctevent, KeyCode, KeyEvent, KeyModifiers};
 use std::{
@@ -7,12 +7,12 @@ use std::{
     time::Duration,
 };
 
-pub struct CrosstermEventLoop {
+pub struct Loop {
     rx: Option<Receiver<Event>>,
     tick_rate: Duration,
 }
 
-impl CrosstermEventLoop {
+impl Loop {
     pub fn new(tick_rate: Duration) -> Self {
         Self {
             rx: None,
@@ -21,7 +21,7 @@ impl CrosstermEventLoop {
     }
 }
 
-impl EventLoop for CrosstermEventLoop {
+impl EventLoop for Loop {
     fn start(&mut self) {
         let (tx, rx) = mpsc::channel();
         let tick_rate = self.tick_rate;
@@ -36,8 +36,9 @@ impl EventLoop for CrosstermEventLoop {
 
                         break;
                     }
-                    _ => tx.send(Event::Tick).unwrap(),
+                    Ok(ctevent::Event::Mouse(_)) | Ok(ctevent::Event::Resize(_, _)) => {}
                 },
+                Ok(false) => tx.send(Event::Tick).unwrap(),
                 Err(e) => {
                     tx.send(Event::Error(
                         Error::from(e).context("unable to poll for events"),
@@ -46,7 +47,6 @@ impl EventLoop for CrosstermEventLoop {
 
                     break;
                 }
-                _ => {}
             };
         });
 

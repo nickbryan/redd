@@ -6,9 +6,9 @@ use crate::ui::{
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub struct WelcomeScreen {}
+pub struct Screen {}
 
-impl Component for WelcomeScreen {
+impl Component for Screen {
     fn render(&self, area: Rect, buffer: &mut Buffer) {
         for terminal_row in 0..area.height {
             if terminal_row == area.height / 3 {
@@ -18,9 +18,9 @@ impl Component for WelcomeScreen {
                 let spaces = " ".repeat(padding.saturating_sub(1));
                 welcome_message = format!("~{}{}", spaces, welcome_message);
                 welcome_message.truncate(area.width);
-                buffer.write_line(terminal_row, welcome_message, Style::default());
+                buffer.write_line(terminal_row, &welcome_message, &Style::default());
             } else {
-                buffer.write_line(terminal_row, "~".into(), Style::default());
+                buffer.write_line(terminal_row, "~", &Style::default());
             }
         }
     }

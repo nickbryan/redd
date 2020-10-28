@@ -153,22 +153,26 @@ impl Document {
     }
 
     pub fn insert(&mut self, at: &Position, ch: char) -> Result<()> {
-        if at.y == self.len() {
-            let mut row = Row::default();
-            row.insert(0, ch);
-            self.rows.push(row);
+        use std::cmp::Ordering;
 
-            Ok(())
-        } else if at.y < self.len() {
-            let row = self.rows.get_mut(at.y).unwrap();
-            row.insert(at.x, ch);
+        match at.y.cmp(&self.len()) {
+            Ordering::Equal => {
+                let mut row = Row::default();
+                row.insert(0, ch);
+                self.rows.push(row);
 
-            Ok(())
-        } else {
-            Err(Error::from(std::io::Error::new(
+                Ok(())
+            }
+            Ordering::Less => {
+                let row = self.rows.get_mut(at.y).unwrap();
+                row.insert(at.x, ch);
+
+                Ok(())
+            }
+            Ordering::Greater => Err(Error::from(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 "trying to insert character past current string length",
-            )))
+            ))),
         }
     }
 

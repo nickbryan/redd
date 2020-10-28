@@ -21,12 +21,12 @@ impl<'a, B: Backend> View<'a, B> {
         &self.cursor_position
     }
 
-    pub fn render<C: Component>(&mut self, component: C, area: Rect) {
+    pub fn render<C: Component>(&mut self, component: &C, area: Rect) {
         component.render(area, self.terminal.current_buffer_mut());
     }
 
-    pub fn set_cursor_position(&mut self, position: &Position) {
-        self.cursor_position = Position::from(*position);
+    pub fn set_cursor_position(&mut self, position: Position) {
+        self.cursor_position = position;
     }
 }
 
@@ -107,7 +107,7 @@ impl<B: Backend> Terminal<B> {
 
     pub fn position_cursor(&mut self, position: &Position) -> Result<()> {
         self.backend
-            .position_cursor(position.x as u16, position.y as u16)
+            .position_cursor(position.x, position.y)
             .context("unable to position cursor")
     }
 

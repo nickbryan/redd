@@ -38,8 +38,8 @@ impl Component for StatusBar {
 
         buffer.write_line(
             area.top(),
-            status,
-            Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
+            &status,
+            &Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
         );
     }
 }

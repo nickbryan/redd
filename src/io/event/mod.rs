@@ -1,7 +1,7 @@
 use anyhow::{Error, Result};
 
 mod crossterm;
-pub use self::crossterm::CrosstermEventLoop;
+pub use self::crossterm::Loop as CrosstermEventLoop;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Key {
@@ -31,7 +31,7 @@ pub enum Event {
     Error(Error),
 }
 
-pub trait EventLoop {
+pub trait Loop {
     fn start(&mut self);
     fn next(&self) -> Result<Event>;
 }

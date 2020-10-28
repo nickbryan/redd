@@ -86,21 +86,21 @@ impl Buffer {
     }
 
     fn index_of(&self, position: &Position) -> Result<usize, OutOfBoundsError> {
-        if !self.area.contains(position) {
-            Err(OutOfBoundsError)
-        } else {
+        if self.area.contains(position) {
             Ok((position.y - self.area.position.y) * self.area.width
                 + (position.x - self.area.position.x))
+        } else {
+            Err(OutOfBoundsError)
         }
     }
 
     pub fn reset(&mut self) {
-        for cell in self.cells.iter_mut() {
+        for cell in &mut self.cells {
             cell.reset();
         }
     }
 
-    pub fn write_line(&mut self, line_number: usize, string: String, style: Style) {
+    pub fn write_line(&mut self, line_number: usize, string: &str, style: &Style) {
         let index = self.index_of(&Position::new(0, line_number)).unwrap();
 
         for (i, grapheme) in string[..].graphemes(true).enumerate() {

@@ -1,7 +1,7 @@
 use crate::{
     document::Document,
     io::{
-        event::{CrosstermEventLoop, Event, EventLoop, Key},
+        event::{CrosstermEventLoop, Event, Key, Loop as EventLoop},
         CrosstermBackend,
     },
     terminal::Terminal,
@@ -9,7 +9,7 @@ use crate::{
         layout::{Position, Rect},
         status_bar::StatusBar,
         text::DocumentView,
-        welcome::WelcomeScreen,
+        welcome::Screen as WelcomeScreen,
     },
 };
 use anyhow::{Context, Result};
@@ -75,14 +75,12 @@ impl Editor {
     }
 
     fn move_cursor(&mut self, key: Key) -> Result<()> {
+        use crate::document::Row;
+
         let terminal_height = self.terminal.viewport().height - 2;
         let Position { x, y } = self.cursor_position;
         let height = self.document.len();
-        let width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
+        let width = self.document.row(y).map_or(0, Row::len);
 
         let (x, y) = match key {
             Key::Up => (x, y.saturating_sub(1)),
@@ -97,11 +95,9 @@ impl Editor {
                 if x > 0 {
                     (x - 1, y)
                 } else if y > 0 {
-                    if let Some(row) = self.document.row(y) {
-                        (row.len(), y - 1)
-                    } else {
-                        (0, y - 1)
-                    }
+                    self.document
+                        .row(y)
+                        .map_or((0, y - 1), |row| (row.len(), y - 1))
                 } else {
                     (x, y)
                 }
@@ -134,14 +130,10 @@ impl Editor {
             _ => (x, y),
         };
 
-        let width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
+        let new_width = self.document.row(y).map_or(0, Row::len);
 
         self.cursor_position = Position {
-            x: if x > width { width } else { x },
+            x: if x > new_width { new_width } else { x },
             y,
         };
 
@@ -231,10 +223,10 @@ impl Editor {
             let height = view.area().height - 2;
 
             if document.is_empty() {
-                view.render(WelcomeScreen {}, view.area());
+                view.render(&WelcomeScreen {}, view.area());
             } else {
                 view.render(
-                    DocumentView::new(document, offset),
+                    &DocumentView::new(document, *offset),
                     Rect::new(width, height),
                 );
 
@@ -244,7 +236,7 @@ impl Editor {
                     .clone();
 
                 view.render(
-                    StatusBar::new(
+                    &StatusBar::new(
                         file_name,
                         document.len(),
                         cursor_position.y.saturating_add(1),
@@ -253,7 +245,7 @@ impl Editor {
                 );
             }
 
-            view.set_cursor_position(&Position::new(
+            view.set_cursor_position(Position::new(
                 cursor_position.x.saturating_sub(offset.x),
                 cursor_position.y.saturating_sub(offset.y),
             ));

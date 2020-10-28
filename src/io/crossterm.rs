@@ -1,8 +1,8 @@
 use crate::{
-    io::Backend,
+    io::Backend as BaseBackend,
     ui::{buffer::Cell, layout::Rect, style::Color},
 };
-use anyhow::Result;
+use anyhow::{Error, Result};
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     style::{Color as CrosstermColor, Print, SetBackgroundColor, SetForegroundColor},
@@ -13,17 +13,17 @@ use std::{
     time::Duration,
 };
 
-pub struct CrosstermBackend<W: Write> {
+pub struct Backend<W: Write> {
     buffer: W,
 }
 
-impl<W: Write> CrosstermBackend<W> {
+impl<W: Write> Backend<W> {
     pub fn new(buffer: W) -> Self {
         Self { buffer }
     }
 }
 
-impl<W: Write> Write for CrosstermBackend<W> {
+impl<W: Write> Write for Backend<W> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.buffer.write(buf)
     }
@@ -33,101 +33,104 @@ impl<W: Write> Write for CrosstermBackend<W> {
     }
 }
 
-impl<W: Write> Backend for CrosstermBackend<W> {
-    fn clear(&mut self) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, Clear(ClearType::All))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+impl<W: Write> BaseBackend for Backend<W> {
+    fn clear(&mut self) -> Result<(), Error> {
+        crossterm::queue!(self.buffer, Clear(ClearType::All))?;
+        Ok(())
     }
 
-    fn draw<'a, I>(&mut self, cells: I) -> Result<(), io::Error>
+    fn draw<'a, I>(&mut self, cells: I) -> Result<(), Error>
     where
         I: Iterator<Item = &'a Cell>,
     {
-        let mut prev_bg = Color::Reset;
-        let mut prev_fg = Color::Reset;
+        let mut prev_background = Color::Reset;
+        let mut prev_foreground = Color::Reset;
 
         for cell in cells {
-            self.position_cursor(cell.position().x as u16, cell.position().y as u16)?;
+            self.position_cursor(cell.position().x, cell.position().y)?;
 
-            if cell.style().background() != prev_bg {
+            if cell.style().background() != prev_background {
                 crossterm::queue!(
                     self.buffer,
                     SetBackgroundColor(CrosstermColor::from(cell.style().background()))
-                )
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                )?;
 
-                prev_bg = cell.style().background();
+                prev_background = cell.style().background();
             }
 
-            if cell.style().foreground() != prev_fg {
+            if cell.style().foreground() != prev_foreground {
                 crossterm::queue!(
                     self.buffer,
                     SetForegroundColor(CrosstermColor::from(cell.style().foreground()))
-                )
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                )?;
 
-                prev_fg = cell.style().foreground();
+                prev_foreground = cell.style().foreground();
             }
 
-            crossterm::queue!(self.buffer, Print(cell.symbol()))
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            crossterm::queue!(self.buffer, Print(cell.symbol()))?;
         }
 
         crossterm::queue!(
             self.buffer,
             SetBackgroundColor(CrosstermColor::from(Color::Reset)),
             SetForegroundColor(CrosstermColor::from(Color::Reset)),
-        )
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+        )?;
+
+        Ok(())
     }
 
-    fn enable_raw_mode(&mut self) -> Result<(), io::Error> {
-        crossterm::terminal::enable_raw_mode()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn enable_raw_mode(&mut self) -> Result<(), Error> {
+        crossterm::terminal::enable_raw_mode()?;
+        Ok(())
     }
 
-    fn enter_alterate_screen(&mut self) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, EnterAlternateScreen)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn enter_alterate_screen(&mut self) -> Result<(), Error> {
+        crossterm::queue!(self.buffer, EnterAlternateScreen)?;
+        Ok(())
     }
 
-    fn disable_raw_mode(&mut self) -> Result<(), io::Error> {
-        crossterm::terminal::disable_raw_mode()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn disable_raw_mode(&mut self) -> Result<(), Error> {
+        crossterm::terminal::disable_raw_mode()?;
+        Ok(())
     }
 
-    fn leave_alterante_screen(&mut self) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, LeaveAlternateScreen)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn leave_alterante_screen(&mut self) -> Result<(), Error> {
+        crossterm::queue!(self.buffer, LeaveAlternateScreen)?;
+        Ok(())
     }
 
-    fn flush(&mut self) -> Result<(), io::Error> {
-        self.buffer.flush()
+    fn flush(&mut self) -> Result<(), Error> {
+        self.buffer.flush()?;
+        Ok(())
     }
 
-    fn hide_cursor(&mut self) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, Hide)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn hide_cursor(&mut self) -> Result<(), Error> {
+        crossterm::queue!(self.buffer, Hide)?;
+        Ok(())
     }
 
-    fn poll_events(&mut self, timeout: Duration) -> Result<bool, io::Error> {
-        crossterm::event::poll(timeout)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn poll_events(&mut self, timeout: Duration) -> Result<bool, Error> {
+        let polled = crossterm::event::poll(timeout)?;
+        Ok(polled)
     }
 
-    fn position_cursor(&mut self, x: u16, y: u16) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, MoveTo(x, y))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn position_cursor(&mut self, x: usize, y: usize) -> Result<(), Error> {
+        use std::convert::TryFrom;
+
+        let x = u16::try_from(x)?;
+        let y = u16::try_from(y)?;
+
+        crossterm::queue!(self.buffer, MoveTo(x, y))?;
+        Ok(())
     }
 
-    fn show_cursor(&mut self) -> Result<(), io::Error> {
-        crossterm::queue!(self.buffer, Show)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))
+    fn show_cursor(&mut self) -> Result<(), Error> {
+        crossterm::queue!(self.buffer, Show)?;
+        Ok(())
     }
 
-    fn size(&self) -> Result<Rect, io::Error> {
-        let (width, height) = crossterm::terminal::size()
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+    fn size(&self) -> Result<Rect, Error> {
+        let (width, height) = crossterm::terminal::size()?;
 
         Ok(Rect::new(usize::from(width), usize::from(height)))
     }
