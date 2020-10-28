@@ -1,4 +1,5 @@
 use crate::{
+    command::Command,
     document::Document,
     editor::Mode,
     io::event::Key,
@@ -45,49 +46,44 @@ impl Buffer {
         self.document.len()
     }
 
-    pub fn proccess_keypress(&mut self, key: Key, mode: Mode) -> Result<Option<Mode>> {
-        match mode {
-            Mode::Normal => match key {
-                Key::Char('i') => return Ok(Some(Mode::Insert)),
-                Key::Ctrl('s') => self.document.save().context("unable to save document")?,
-                _ => {
-                    self.move_cursor(key).context("unable to move cursor")?;
-                }
-            },
-            Mode::Insert => match key {
-                Key::Char(ch) => {
-                    self.document
-                        .insert(&self.cursor_position, ch)
-                        .context("unable to insert character in document")?;
+    pub fn proccess_command(&mut self, command: Command) -> Result<()> {
+        match command {
+            Command::InsertChar(ch) => {
+                self.document
+                    .insert(&self.cursor_position, ch)
+                    .context("unable to insert character in document")?;
 
-                    self.move_cursor(Key::Right)
-                        .context("unable to move cursor to the right")?;
+                self.move_cursor(Command::MoveCursorRight)
+                    .context("unable to move cursor to the right")?;
+            }
+            Command::InsertLineBreak => {
+                self.document.insert_newline(&self.cursor_position);
+                self.move_cursor(Command::MoveCursorDown)
+                    .context("unable to move to new line")?;
+                self.move_cursor(Command::MoveCursorLineStart)
+                    .context("unable to move to start of new line")?;
+            }
+            Command::DeleteCharForward => self.document.delete(&self.cursor_position),
+            Command::DeleteCharBackward => {
+                if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
+                    self.move_cursor(Command::MoveCursorLeft)
+                        .context("unable to move cursor to the left")?;
+                    self.document.delete(&self.cursor_position);
                 }
-                Key::Delete => self.document.delete(&self.cursor_position),
-                Key::Backspace => {
-                    if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
-                        self.move_cursor(Key::Left)
-                            .context("unable to move cursor to the left")?;
-                        self.document.delete(&self.cursor_position);
-                    }
-                }
-                Key::Enter => {
-                    self.document.insert_newline(&self.cursor_position);
-                    self.move_cursor(Key::Down)
-                        .context("unable to move to new line")?;
-                    self.move_cursor(Key::Home)
-                        .context("unable to move to start of new line")?;
-                }
-                _ => {}
-            },
+            }
+
+            Command::Save => self.document.save().context("unable to save document")?,
+            _ => {
+                self.move_cursor(command).context("unable to move cursor")?;
+            }
         };
 
         self.scroll();
 
-        Ok(None)
+        Ok(())
     }
 
-    fn move_cursor(&mut self, key: Key) -> Result<()> {
+    fn move_cursor(&mut self, command: Command) -> Result<()> {
         use crate::document::Row;
 
         let terminal_height = self.viewport.height - 2;
@@ -95,16 +91,16 @@ impl Buffer {
         let height = self.document.len();
         let width = self.document.row(y).map_or(0, Row::len);
 
-        let (x, y) = match key {
-            Key::Up => (x, y.saturating_sub(1)),
-            Key::Down => {
+        let (x, y) = match command {
+            Command::MoveCursorUp => (x, y.saturating_sub(1)),
+            Command::MoveCursorDown => {
                 if y < height {
                     (x, y.saturating_add(1))
                 } else {
                     (x, y)
                 }
             }
-            Key::Left => {
+            Command::MoveCursorLeft => {
                 if x > 0 {
                     (x - 1, y)
                 } else if y > 0 {
@@ -115,7 +111,7 @@ impl Buffer {
                     (x, y)
                 }
             }
-            Key::Right => {
+            Command::MoveCursorRight => {
                 if x < width {
                     (x + 1, y)
                 } else if y < height {
@@ -124,22 +120,22 @@ impl Buffer {
                     (x, y)
                 }
             }
-            Key::PageUp => {
+            Command::MoveCursorPageUp => {
                 if y > terminal_height {
                     (x, y - terminal_height)
                 } else {
                     (x, 0)
                 }
             }
-            Key::PageDown => {
+            Command::MoveCursorPageDown => {
                 if y.saturating_add(terminal_height) < height {
                     (x, y + terminal_height)
                 } else {
                     (x, height)
                 }
             }
-            Key::Home => (0, y),
-            Key::End => (width, y),
+            Command::MoveCursorLineStart => (0, y),
+            Command::MoveCursorLineEnd => (width, y),
             _ => (x, y),
         };
 

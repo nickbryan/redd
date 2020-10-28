@@ -1,7 +1,8 @@
 use crate::{
+    command::{Command, Parser},
     document::{Buffer, Document},
     io::{
-        event::{CrosstermEventLoop, Event, Key, Loop as EventLoop},
+        event::{CrosstermEventLoop, Event, Loop as EventLoop},
         CrosstermBackend,
     },
     terminal::Terminal,
@@ -15,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Mode {
     Normal,
     Insert,
@@ -42,6 +43,7 @@ pub struct Editor {
     buffers: Vec<Buffer>,
     active_buffer_idx: usize,
     mode: Mode,
+    command_parser: Parser,
 }
 
 impl Editor {
@@ -70,6 +72,7 @@ impl Editor {
             buffers: vec![Buffer::new(document, document_viewport)],
             active_buffer_idx: 0,
             mode: Mode::default(),
+            command_parser: Parser::default(),
         })
     }
 
@@ -84,9 +87,12 @@ impl Editor {
             }
 
             match self.event_loop.next()? {
-                Event::Input(key) => self
-                    .proccess_keypress(key)
-                    .context("unable to process key press")?,
+                Event::Input(key) => {
+                    if let Some(command) = self.command_parser.parse(key, self.mode) {
+                        self.proccess_command(command)
+                            .context("unable to process command")?;
+                    };
+                }
                 Event::Tick => { /* We can do stuff here while waiting for input */ }
                 Event::Error(e) => return Err(e),
             };
@@ -95,36 +101,15 @@ impl Editor {
         Ok(())
     }
 
-    fn proccess_keypress(&mut self, key: Key) -> Result<()> {
+    fn proccess_command(&mut self, command: Command) -> Result<()> {
         let actrive_buffer = &mut self.buffers[self.active_buffer_idx];
 
-        match self.mode {
-            Mode::Insert => {
-                match key {
-                    Key::Esc => self.mode = Mode::Normal,
-                    _ => {
-                        if let Some(new_mode) = actrive_buffer
-                            .proccess_keypress(key, self.mode)
-                            .context("unable to process keypress on active buffer")?
-                        {
-                            self.mode = new_mode;
-                        }
-                    }
-                };
-            }
-            Mode::Normal => {
-                match key {
-                    Key::Char('q') => self.should_quit = true,
-                    _ => {
-                        if let Some(new_mode) = actrive_buffer
-                            .proccess_keypress(key, self.mode)
-                            .context("unable to process keypress on active buffer")?
-                        {
-                            self.mode = new_mode;
-                        }
-                    }
-                };
-            }
+        match command {
+            Command::Quit => self.should_quit = true,
+            Command::EnterMode(mode) => self.mode = mode,
+            _ => actrive_buffer
+                .proccess_command(command)
+                .context("unable to process command on active buffer")?,
         };
 
         Ok(())
