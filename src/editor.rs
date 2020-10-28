@@ -10,6 +10,7 @@ use crate::{
 use anyhow::{Context, Result};
 use std::{
     env,
+    fmt::{self, Display, Formatter},
     io::{self, Stdout},
     time::Duration,
 };
@@ -26,6 +27,14 @@ impl Default for Mode {
     }
 }
 
+impl Display for Mode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Normal => write!(f, "Normal"),
+            Self::Insert => write!(f, "Insert"),
+        }
+    }
+}
 pub struct Editor {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     event_loop: Box<dyn EventLoop>,
@@ -129,6 +138,7 @@ impl Editor {
         }
 
         let active_buffer = &self.buffers[self.active_buffer_idx];
+        let mode = self.mode;
 
         self.terminal.draw(|view| {
             let width = view.area().width;
@@ -140,6 +150,7 @@ impl Editor {
                 active_buffer.document_name(),
                 active_buffer.lines_in_document(),
                 active_buffer.cursor_position().y.saturating_add(1),
+                mode,
             ));
 
             view.set_cursor_position(active_buffer.cursor_position());

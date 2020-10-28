@@ -1,3 +1,4 @@
+use crate::editor::Mode;
 use crate::ui::{
     layout::{Component, Rect},
     style::{Color, Style},
@@ -9,10 +10,17 @@ pub struct StatusBar {
     lines: usize,
     current_line: usize,
     viewport: Rect,
+    mode: Mode,
 }
 
 impl StatusBar {
-    pub fn new(viewport: Rect, mut file_name: String, lines: usize, current_line: usize) -> Self {
+    pub fn new(
+        viewport: Rect,
+        mut file_name: String,
+        lines: usize,
+        current_line: usize,
+        mode: Mode,
+    ) -> Self {
         file_name.truncate(20);
 
         Self {
@@ -20,13 +28,14 @@ impl StatusBar {
             lines,
             current_line,
             viewport,
+            mode,
         }
     }
 }
 
 impl Component for StatusBar {
     fn render(&self, buffer: &mut FrameBuffer) {
-        let mut status = format!("File: {}", self.file_name);
+        let mut status = format!("Mode: [{}]    File: {}", self.mode, self.file_name);
         let line_indicator = format!("{}/{}", self.current_line, self.lines);
 
         let len = status.len() + line_indicator.len();
