@@ -14,12 +14,25 @@ use std::{
     time::Duration,
 };
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum Mode {
+    Normal,
+    Insert,
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Normal
+    }
+}
+
 pub struct Editor {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     event_loop: Box<dyn EventLoop>,
     should_quit: bool,
     buffers: Vec<Buffer>,
     active_buffer_idx: usize,
+    mode: Mode,
 }
 
 impl Editor {
@@ -47,6 +60,7 @@ impl Editor {
             should_quit: false,
             buffers: vec![Buffer::new(document, document_viewport)],
             active_buffer_idx: 0,
+            mode: Mode::default(),
         })
     }
 
@@ -75,11 +89,33 @@ impl Editor {
     fn proccess_keypress(&mut self, key: Key) -> Result<()> {
         let actrive_buffer = &mut self.buffers[self.active_buffer_idx];
 
-        match key {
-            Key::Ctrl('q') => self.should_quit = true,
-            _ => actrive_buffer
-                .proccess_keypress(key)
-                .context("unable to process keypress on active buffer")?,
+        match self.mode {
+            Mode::Insert => {
+                match key {
+                    Key::Esc => self.mode = Mode::Normal,
+                    _ => {
+                        if let Some(new_mode) = actrive_buffer
+                            .proccess_keypress(key, self.mode)
+                            .context("unable to process keypress on active buffer")?
+                        {
+                            self.mode = new_mode;
+                        }
+                    }
+                };
+            }
+            Mode::Normal => {
+                match key {
+                    Key::Char('q') => self.should_quit = true,
+                    _ => {
+                        if let Some(new_mode) = actrive_buffer
+                            .proccess_keypress(key, self.mode)
+                            .context("unable to process keypress on active buffer")?
+                        {
+                            self.mode = new_mode;
+                        }
+                    }
+                };
+            }
         };
 
         Ok(())

@@ -1,5 +1,6 @@
 use crate::{
     document::Document,
+    editor::Mode,
     io::event::Key,
     ui::{
         layout::{Component, Position, Rect},
@@ -44,38 +45,46 @@ impl Buffer {
         self.document.len()
     }
 
-    pub fn proccess_keypress(&mut self, key: Key) -> Result<()> {
-        match key {
-            Key::Ctrl('s') => self.document.save().context("unable to save document")?,
-            Key::Char(ch) => {
-                self.document
-                    .insert(&self.cursor_position, ch)
-                    .context("unable to insert character in document")?;
-
-                self.move_cursor(Key::Right)
-                    .context("unable to move cursor to the right")?;
-            }
-            Key::Delete => self.document.delete(&self.cursor_position),
-            Key::Backspace => {
-                if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
-                    self.move_cursor(Key::Left)
-                        .context("unable to move cursor to the left")?;
-                    self.document.delete(&self.cursor_position);
+    pub fn proccess_keypress(&mut self, key: Key, mode: Mode) -> Result<Option<Mode>> {
+        match mode {
+            Mode::Normal => match key {
+                Key::Char('i') => return Ok(Some(Mode::Insert)),
+                Key::Ctrl('s') => self.document.save().context("unable to save document")?,
+                _ => {
+                    self.move_cursor(key).context("unable to move cursor")?;
                 }
-            }
-            Key::Enter => {
-                self.document.insert_newline(&self.cursor_position);
-                self.move_cursor(Key::Down)
-                    .context("unable to move to new line")?;
-                self.move_cursor(Key::Home)
-                    .context("unable to move to start of new line")?;
-            }
-            _ => {
-                self.move_cursor(key).context("unable to move cursor")?;
-            }
+            },
+            Mode::Insert => match key {
+                Key::Char(ch) => {
+                    self.document
+                        .insert(&self.cursor_position, ch)
+                        .context("unable to insert character in document")?;
+
+                    self.move_cursor(Key::Right)
+                        .context("unable to move cursor to the right")?;
+                }
+                Key::Delete => self.document.delete(&self.cursor_position),
+                Key::Backspace => {
+                    if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
+                        self.move_cursor(Key::Left)
+                            .context("unable to move cursor to the left")?;
+                        self.document.delete(&self.cursor_position);
+                    }
+                }
+                Key::Enter => {
+                    self.document.insert_newline(&self.cursor_position);
+                    self.move_cursor(Key::Down)
+                        .context("unable to move to new line")?;
+                    self.move_cursor(Key::Home)
+                        .context("unable to move to start of new line")?;
+                }
+                _ => {}
+            },
         };
 
-        self.scroll()
+        self.scroll();
+
+        Ok(None)
     }
 
     fn move_cursor(&mut self, key: Key) -> Result<()> {
