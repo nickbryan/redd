@@ -1,8 +1,6 @@
 use crate::{
     command::Command,
     document::Document,
-    editor::Mode,
-    io::event::Key,
     ui::{
         layout::{Component, Position, Rect},
         style::Style,
@@ -78,7 +76,7 @@ impl Buffer {
             }
         };
 
-        self.scroll();
+        self.scroll().context("unable to scroll buffer")?;
 
         Ok(())
     }

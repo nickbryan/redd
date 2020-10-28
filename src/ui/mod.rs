@@ -1,5 +1,4 @@
 pub mod layout;
-pub mod status_bar;
 pub mod style;
 
 mod frame_buffer;

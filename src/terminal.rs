@@ -7,16 +7,12 @@ use crate::{
 };
 use anyhow::{Context, Result};
 
-pub struct View<'a, B: Backend> {
+pub struct Frame<'a, B: Backend> {
     cursor_position: Position,
     terminal: &'a mut Terminal<B>,
 }
 
-impl<'a, B: Backend> View<'a, B> {
-    pub fn area(&self) -> Rect {
-        self.terminal.viewport()
-    }
-
+impl<'a, B: Backend> Frame<'a, B> {
     pub fn cursor_position(&self) -> &Position {
         &self.cursor_position
     }
@@ -68,19 +64,19 @@ impl<B: Backend> Terminal<B> {
 
     pub fn draw<F>(&mut self, f: F) -> Result<()>
     where
-        F: FnOnce(&mut View<B>) -> Result<()>,
+        F: FnOnce(&mut Frame<B>) -> Result<()>,
     {
         self.hide_cursor()?;
         self.position_cursor(&Position::default())?;
 
-        let mut view = View {
+        let mut frame = Frame {
             terminal: self,
             cursor_position: Position::default(),
         };
 
-        f(&mut view)?;
+        f(&mut frame)?;
 
-        let Position { x, y } = *view.cursor_position();
+        let Position { x, y } = *frame.cursor_position();
 
         self.flush()?;
 
