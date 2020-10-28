@@ -1,7 +1,7 @@
-use crate::ui::buffer::Buffer;
+use crate::ui::FrameBuffer;
 
 pub trait Component {
-    fn render(&self, area: Rect, buffer: &mut Buffer);
+    fn render(&self, area: Rect, buffer: &mut FrameBuffer);
 }
 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]

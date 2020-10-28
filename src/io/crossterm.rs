@@ -1,6 +1,6 @@
 use crate::{
     io::Backend as BaseBackend,
-    ui::{buffer::Cell, layout::Rect, style::Color},
+    ui::{layout::Rect, style::Color, FrameBufferCell},
 };
 use anyhow::{Error, Result};
 use crossterm::{
@@ -41,7 +41,7 @@ impl<W: Write> BaseBackend for Backend<W> {
 
     fn draw<'a, I>(&mut self, cells: I) -> Result<(), Error>
     where
-        I: Iterator<Item = &'a Cell>,
+        I: Iterator<Item = &'a FrameBufferCell>,
     {
         let mut prev_background = Color::Reset;
         let mut prev_foreground = Color::Reset;

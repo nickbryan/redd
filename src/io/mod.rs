@@ -1,4 +1,4 @@
-use crate::ui::{buffer::Cell, layout::Rect};
+use crate::ui::{layout::Rect, FrameBufferCell};
 use anyhow::{Error, Result};
 use std::time::Duration;
 
@@ -9,7 +9,7 @@ pub use self::crossterm::Backend as CrosstermBackend;
 
 pub trait Backend {
     fn clear(&mut self) -> Result<(), Error>;
-    fn draw<'a, I: Iterator<Item = &'a Cell>>(&mut self, cells: I) -> Result<(), Error>;
+    fn draw<'a, I: Iterator<Item = &'a FrameBufferCell>>(&mut self, cells: I) -> Result<(), Error>;
     fn enable_raw_mode(&mut self) -> Result<(), Error>;
     fn enter_alterate_screen(&mut self) -> Result<(), Error>;
     fn disable_raw_mode(&mut self) -> Result<(), Error>;

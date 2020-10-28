@@ -1,8 +1,8 @@
 use crate::{
     document::Document,
-    ui::buffer::Buffer,
     ui::layout::{Component, Position, Rect},
     ui::style::Style,
+    ui::FrameBuffer,
 };
 
 pub struct DocumentView<'a> {
@@ -17,7 +17,7 @@ impl<'a> DocumentView<'a> {
 }
 
 impl<'a> Component for DocumentView<'a> {
-    fn render(&self, area: Rect, buffer: &mut Buffer) {
+    fn render(&self, area: Rect, buffer: &mut FrameBuffer) {
         for terminal_row in 0..area.height {
             if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
                 let start = self.offset.x;

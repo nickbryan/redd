@@ -48,14 +48,14 @@ impl Display for OutOfBoundsError {
     }
 }
 
-pub struct Buffer {
+pub struct FrameBuffer {
     area: Rect,
     cells: Vec<Cell>,
 }
 
-impl Buffer {
+impl FrameBuffer {
     pub fn empty(area: Rect) -> Self {
-        Buffer::filled(area, " ")
+        FrameBuffer::filled(area, " ")
     }
 
     pub fn filled(area: Rect, symbol: &str) -> Self {
@@ -71,14 +71,14 @@ impl Buffer {
         Self { cells, area }
     }
 
-    pub fn diff<'a>(&self, other: &'a Buffer) -> Vec<&'a Cell> {
-        let previous_buffer = &self.cells;
-        let next_buffer = &other.cells;
+    pub fn diff<'a>(&self, other: &'a FrameBuffer) -> Vec<&'a Cell> {
+        let front_buffer = &self.cells;
+        let back_buffer = &other.cells;
 
         let mut updates = vec![];
-        for (i, (current, previous)) in next_buffer.iter().zip(previous_buffer.iter()).enumerate() {
-            if current != previous {
-                updates.push(&next_buffer[i]);
+        for (i, (front, back)) in back_buffer.iter().zip(front_buffer.iter()).enumerate() {
+            if front != back {
+                updates.push(&back_buffer[i]);
             }
         }
 

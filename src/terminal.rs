@@ -1,8 +1,8 @@
 use crate::{
     io::Backend,
     ui::{
-        buffer::Buffer,
         layout::{Component, Position, Rect},
+        FrameBuffer,
     },
 };
 use anyhow::{Context, Result};
@@ -32,7 +32,7 @@ impl<'a, B: Backend> View<'a, B> {
 
 pub struct Terminal<B: Backend> {
     backend: B,
-    buffers: [Buffer; 2],
+    buffers: [FrameBuffer; 2],
     current_buffer_idx: usize,
     viewport: Rect,
 }
@@ -52,7 +52,7 @@ impl<B: Backend> Terminal<B> {
 
         Ok(Self {
             backend,
-            buffers: [Buffer::empty(viewport), Buffer::empty(viewport)],
+            buffers: [FrameBuffer::empty(viewport), FrameBuffer::empty(viewport)],
             current_buffer_idx: 0,
             viewport,
         })
@@ -62,7 +62,7 @@ impl<B: Backend> Terminal<B> {
         self.backend.clear().context("unable to clear screen")
     }
 
-    pub fn current_buffer_mut(&mut self) -> &mut Buffer {
+    pub fn current_buffer_mut(&mut self) -> &mut FrameBuffer {
         &mut self.buffers[self.current_buffer_idx]
     }
 

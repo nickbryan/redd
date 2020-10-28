@@ -1,7 +1,7 @@
 use crate::ui::{
-    buffer::Buffer,
     layout::{Component, Rect},
     style::Style,
+    FrameBuffer,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -9,7 +9,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub struct Screen {}
 
 impl Component for Screen {
-    fn render(&self, area: Rect, buffer: &mut Buffer) {
+    fn render(&self, area: Rect, buffer: &mut FrameBuffer) {
         for terminal_row in 0..area.height {
             if terminal_row == area.height / 3 {
                 let mut welcome_message = format!("Vie editor -- version {}", VERSION);

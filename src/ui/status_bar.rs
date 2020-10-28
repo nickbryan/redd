@@ -1,7 +1,7 @@
 use crate::ui::{
-    buffer::Buffer,
     layout::{Component, Rect},
     style::{Color, Style},
+    FrameBuffer,
 };
 
 pub struct StatusBar {
@@ -23,7 +23,7 @@ impl StatusBar {
 }
 
 impl Component for StatusBar {
-    fn render(&self, area: Rect, buffer: &mut Buffer) {
+    fn render(&self, area: Rect, buffer: &mut FrameBuffer) {
         let mut status = format!("File: {}", self.file_name);
         let line_indicator = format!("{}/{}", self.current_line, self.lines);
 
