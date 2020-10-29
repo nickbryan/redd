@@ -34,9 +34,9 @@ impl Default for Mode {
 impl Display for Mode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Normal => write!(f, "Normal"),
-            Self::Insert => write!(f, "Insert"),
-            Self::Command(_) => write!(f, "Command"),
+            Self::Normal => write!(f, "NORMAL"),
+            Self::Insert => write!(f, "INSERT"),
+            Self::Command(_) => write!(f, "COMMAND"),
         }
     }
 }
@@ -108,6 +108,10 @@ impl MessageBar {
 
     pub fn push_char(&mut self, ch: char) {
         self.message.push(ch);
+    }
+
+    pub fn set_message(&mut self, message: &str) {
+        self.message = message.into();
     }
 }
 
@@ -216,31 +220,30 @@ impl Editor {
     fn proccess_command(&mut self, command: Command) -> Result<()> {
         let actrive_buffer = &mut self.buffers[self.active_buffer_idx];
 
+        if let Command::EnterMode(mode) = command {
+            match mode {
+                Mode::Command(starting_ch) => self.message_bar.push_char(starting_ch),
+                Mode::Insert => {
+                    self.message_bar.clear();
+                    self.message_bar.set_message(&format!("-- {} --", mode));
+                }
+                _ => self.message_bar.clear(),
+            };
+
+            self.mode = mode;
+
+            return Ok(());
+        }
+
         match self.mode {
             Mode::Command(_) => match command {
                 Command::InsertChar(ch) => self.message_bar.push_char(ch),
                 Command::Quit => self.should_quit = true,
-                Command::EnterMode(mode) => {
-                    if let Mode::Command(starting_ch) = mode {
-                        self.message_bar.push_char(starting_ch);
-                    }
-
-                    self.mode = mode;
-                }
                 _ => {}
             },
-            _ => match command {
-                Command::EnterMode(mode) => {
-                    if let Mode::Command(starting_ch) = mode {
-                        self.message_bar.push_char(starting_ch);
-                    }
-
-                    self.mode = mode;
-                }
-                _ => actrive_buffer
-                    .proccess_command(command)
-                    .context("unable to process command on active buffer")?,
-            },
+            _ => actrive_buffer
+                .proccess_command(command)
+                .context("unable to process command on active buffer")?,
         };
 
         Ok(())
