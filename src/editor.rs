@@ -22,6 +22,7 @@ use std::{
 pub enum Mode {
     Normal,
     Insert,
+    Command(char),
 }
 
 impl Default for Mode {
@@ -35,6 +36,7 @@ impl Display for Mode {
         match self {
             Self::Normal => write!(f, "Normal"),
             Self::Insert => write!(f, "Insert"),
+            Self::Command(_) => write!(f, "Command"),
         }
     }
 }
@@ -52,7 +54,7 @@ impl StatusBar {
     pub fn new(viewport: Rect) -> Self {
         Self {
             viewport,
-            ..StatusBar::default()
+            ..Self::default()
         }
     }
 
@@ -60,7 +62,7 @@ impl StatusBar {
         self.mode = mode;
         self.line_count = line_count;
         self.current_line = current_line;
-        self.file_name = String::from(file_name);
+        self.file_name = file_name.into();
     }
 }
 
@@ -86,6 +88,35 @@ impl Component for StatusBar {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct MessageBar {
+    viewport: Rect,
+    message: String,
+}
+
+impl MessageBar {
+    pub fn new(viewport: Rect) -> Self {
+        Self {
+            viewport,
+            ..Self::default()
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.message.clear();
+    }
+
+    pub fn push_char(&mut self, ch: char) {
+        self.message.push(ch);
+    }
+}
+
+impl Component for MessageBar {
+    fn render(&self, buffer: &mut FrameBuffer) {
+        buffer.write_line(self.viewport.top(), &self.message, &Style::default());
+    }
+}
+
 pub struct Editor {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     event_loop: Box<dyn EventLoop>,
@@ -95,6 +126,7 @@ pub struct Editor {
     mode: Mode,
     command_parser: Parser,
     status_bar: StatusBar,
+    message_bar: MessageBar,
 }
 
 impl Editor {
@@ -109,7 +141,7 @@ impl Editor {
         };
 
         let backend = CrosstermBackend::new(io::stdout());
-        let event_loop = Box::new(CrosstermEventLoop::new(Duration::from_millis(32)));
+        let event_loop = Box::new(CrosstermEventLoop::new(Duration::from_millis(250)));
 
         let terminal = Terminal::new(backend).context("unable to create Terminal")?;
 
@@ -123,6 +155,13 @@ impl Editor {
             terminal.viewport().bottom() - 2,
         ));
 
+        let message_bar = MessageBar::new(Rect::positioned(
+            terminal.viewport().width,
+            terminal.viewport().height,
+            0,
+            terminal.viewport().bottom() - 1,
+        ));
+
         Ok(Self {
             terminal,
             event_loop,
@@ -132,6 +171,7 @@ impl Editor {
             mode: Mode::default(),
             command_parser: Parser::default(),
             status_bar,
+            message_bar,
         })
     }
 
@@ -151,17 +191,10 @@ impl Editor {
                         self.proccess_command(command)
                             .context("unable to process command")?;
                     };
-                }
-                Event::Tick => {
-                    let active_buffer = &self.buffers[self.active_buffer_idx];
 
-                    self.status_bar.update(
-                        self.mode,
-                        active_buffer.lines_in_document(),
-                        active_buffer.cursor_position().y,
-                        &active_buffer.document_name(),
-                    );
+                    self.update_status_bar();
                 }
+                Event::Tick => {}
                 Event::Error(e) => return Err(e),
             };
         }
@@ -169,15 +202,45 @@ impl Editor {
         Ok(())
     }
 
+    fn update_status_bar(&mut self) {
+        let active_buffer = &self.buffers[self.active_buffer_idx];
+
+        self.status_bar.update(
+            self.mode,
+            active_buffer.lines_in_document(),
+            active_buffer.cursor_position().y,
+            &active_buffer.document_name(),
+        );
+    }
+
     fn proccess_command(&mut self, command: Command) -> Result<()> {
         let actrive_buffer = &mut self.buffers[self.active_buffer_idx];
 
-        match command {
-            Command::Quit => self.should_quit = true,
-            Command::EnterMode(mode) => self.mode = mode,
-            _ => actrive_buffer
-                .proccess_command(command)
-                .context("unable to process command on active buffer")?,
+        match self.mode {
+            Mode::Command(_) => match command {
+                Command::InsertChar(ch) => self.message_bar.push_char(ch),
+                Command::Quit => self.should_quit = true,
+                Command::EnterMode(mode) => {
+                    if let Mode::Command(starting_ch) = mode {
+                        self.message_bar.push_char(starting_ch);
+                    }
+
+                    self.mode = mode;
+                }
+                _ => {}
+            },
+            _ => match command {
+                Command::EnterMode(mode) => {
+                    if let Mode::Command(starting_ch) = mode {
+                        self.message_bar.push_char(starting_ch);
+                    }
+
+                    self.mode = mode;
+                }
+                _ => actrive_buffer
+                    .proccess_command(command)
+                    .context("unable to process command on active buffer")?,
+            },
         };
 
         Ok(())
@@ -192,10 +255,12 @@ impl Editor {
 
         let active_buffer = &self.buffers[self.active_buffer_idx];
         let status_bar = &self.status_bar;
+        let message_bar = &self.message_bar;
 
         self.terminal.draw(|view| {
             view.render(active_buffer);
             view.render(status_bar);
+            view.render(message_bar);
 
             view.set_cursor_position(active_buffer.cursor_position());
 
