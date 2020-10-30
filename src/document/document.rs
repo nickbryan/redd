@@ -24,8 +24,12 @@ impl Document {
         })
     }
 
-    pub fn save(&self) -> Result<(), std::io::Error> {
+    pub fn save(&mut self, filename: Option<&str>) -> Result<(), std::io::Error> {
         use {std::fs::File, std::io::Write};
+
+        if let Some(filename) = filename {
+            self.file_name = Some(filename.into());
+        }
 
         if let Some(file_name) = &self.file_name {
             let mut file = File::create(file_name)?;

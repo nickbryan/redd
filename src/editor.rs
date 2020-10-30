@@ -22,7 +22,7 @@ use std::{
 pub enum Mode {
     Normal,
     Insert,
-    Command(char),
+    Command,
 }
 
 impl Default for Mode {
@@ -36,7 +36,7 @@ impl Display for Mode {
         match self {
             Self::Normal => write!(f, "NORMAL"),
             Self::Insert => write!(f, "INSERT"),
-            Self::Command(_) => write!(f, "COMMAND"),
+            Self::Command => write!(f, "COMMAND"),
         }
     }
 }
@@ -104,10 +104,6 @@ impl MessageBar {
 
     pub fn clear(&mut self) {
         self.message.clear();
-    }
-
-    pub fn push_char(&mut self, ch: char) {
-        self.message.push(ch);
     }
 
     pub fn set_message(&mut self, message: &str) {
@@ -222,7 +218,6 @@ impl Editor {
 
         if let Command::EnterMode(mode) = command {
             match mode {
-                Mode::Command(starting_ch) => self.message_bar.push_char(starting_ch),
                 Mode::Insert => {
                     self.message_bar.clear();
                     self.message_bar.set_message(&format!("-- {} --", mode));
@@ -235,12 +230,21 @@ impl Editor {
             return Ok(());
         }
 
-        match self.mode {
-            Mode::Command(_) => match command {
-                Command::InsertChar(ch) => self.message_bar.push_char(ch),
-                Command::Quit => self.should_quit = true,
-                _ => {}
-            },
+        if let Command::CommandLineBeginInput(first_char) = command {
+            self.mode = Mode::Command;
+            self.message_bar.set_message(&first_char.to_string());
+        }
+
+        match command {
+            Command::CommandLineUpdateInput(input) => self.message_bar.set_message(&input),
+            Command::CommandLineExecute(command) => self.proccess_command(*command.clone())?,
+            Command::CommandLineInputAborted => {
+                self.proccess_command(Command::EnterMode(Mode::Normal))?;
+            }
+            Command::CommandLineInputNotRecognised(_) => {
+                self.proccess_command(Command::EnterMode(Mode::Normal))?;
+            }
+            Command::Quit => self.should_quit = true,
             _ => actrive_buffer
                 .proccess_command(command)
                 .context("unable to process command on active buffer")?,

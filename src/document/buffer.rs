@@ -70,7 +70,14 @@ impl Buffer {
                 }
             }
 
-            Command::Save => self.document.save().context("unable to save document")?,
+            Command::Save => self
+                .document
+                .save(None)
+                .context("unable to save document")?,
+            Command::SaveAs(filename) => self
+                .document
+                .save(Some(&filename))
+                .context("unable to save document")?,
             _ => {
                 self.move_cursor(command).context("unable to move cursor")?;
             }
