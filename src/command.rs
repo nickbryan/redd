@@ -76,6 +76,11 @@ pub struct Parser {
 // TODO: return a Result that has an error to determine if input was required or not or the command
 // TODO: replcae with TryFrom?
 // TODO: try clean this up as much as possible
+// TODO: split handling commands for each mode into its own method
+// TODO: create a command_line component for handling all input and cursor stuff, switch to this
+// components mouse_position in the draw method when the command mode is active_binding
+// TODO: pass all commands for cursor movement, insert and delete in command mode so the new
+// component can act on them
 impl Parser {
     pub fn parse(&mut self, key: Key, mode: Mode) -> Option<Command> {
         match mode {
@@ -114,7 +119,7 @@ impl Parser {
                     }
 
                     for binding in &self.command_bindings {
-                        if binding.sequence == self.buffer {
+                        if binding.sequence == self.buffer && !binding.input_capture_allowed {
                             self.buffer.clear();
                             return Some(Command::CommandLineExecute(Box::new(
                                 binding.command.clone(),
