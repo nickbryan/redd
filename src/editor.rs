@@ -1,14 +1,14 @@
 use crate::{
-    command::{Command, Parser},
+    command_line::CommandLine,
     document::{Buffer, Document},
     io::{
         event::{CrosstermEventLoop, Event, Loop as EventLoop},
         CrosstermBackend,
     },
+    ops::{buffer::Parser as BufferCommandParser, Command},
+    status_bar::StatusBar,
     terminal::Terminal,
-    ui::layout::{Component, Rect},
-    ui::style::{Color, Style},
-    ui::FrameBuffer,
+    ui::layout::Rect,
 };
 use anyhow::{Context, Result};
 use std::{
@@ -41,82 +41,6 @@ impl Display for Mode {
     }
 }
 
-#[derive(Default)]
-struct StatusBar {
-    viewport: Rect,
-    mode: Mode,
-    line_count: usize,
-    current_line: usize,
-    file_name: String,
-}
-
-impl StatusBar {
-    pub fn new(viewport: Rect) -> Self {
-        Self {
-            viewport,
-            ..Self::default()
-        }
-    }
-
-    pub fn update(&mut self, mode: Mode, line_count: usize, current_line: usize, file_name: &str) {
-        self.mode = mode;
-        self.line_count = line_count;
-        self.current_line = current_line;
-        self.file_name = file_name.into();
-    }
-}
-
-impl Component for StatusBar {
-    fn render(&self, buffer: &mut FrameBuffer) {
-        let mut status = format!("Mode: [{}]    File: {}", self.mode, self.file_name);
-        let line_indicator = format!("{}/{}", self.current_line, self.line_count);
-
-        let len = status.len() + line_indicator.len();
-
-        if self.viewport.width > len {
-            status.push_str(&" ".repeat(self.viewport.width - len));
-        }
-
-        status = format!("{}{}", status, line_indicator);
-        status.truncate(self.viewport.width);
-
-        buffer.write_line(
-            self.viewport.top(),
-            &status,
-            &Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
-        );
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct MessageBar {
-    viewport: Rect,
-    message: String,
-}
-
-impl MessageBar {
-    pub fn new(viewport: Rect) -> Self {
-        Self {
-            viewport,
-            ..Self::default()
-        }
-    }
-
-    pub fn clear(&mut self) {
-        self.message.clear();
-    }
-
-    pub fn set_message(&mut self, message: &str) {
-        self.message = message.into();
-    }
-}
-
-impl Component for MessageBar {
-    fn render(&self, buffer: &mut FrameBuffer) {
-        buffer.write_line(self.viewport.top(), &self.message, &Style::default());
-    }
-}
-
 pub struct Editor {
     terminal: Terminal<CrosstermBackend<Stdout>>,
     event_loop: Box<dyn EventLoop>,
@@ -124,9 +48,9 @@ pub struct Editor {
     buffers: Vec<Buffer>,
     active_buffer_idx: usize,
     mode: Mode,
-    command_parser: Parser,
+    buffer_commands: BufferCommandParser,
     status_bar: StatusBar,
-    message_bar: MessageBar,
+    command_line: CommandLine,
 }
 
 impl Editor {
@@ -150,14 +74,14 @@ impl Editor {
 
         let status_bar = StatusBar::new(Rect::positioned(
             terminal.viewport().width,
-            terminal.viewport().height,
+            1,
             0,
             terminal.viewport().bottom() - 2,
         ));
 
-        let message_bar = MessageBar::new(Rect::positioned(
+        let command_line = CommandLine::new(Rect::positioned(
             terminal.viewport().width,
-            terminal.viewport().height,
+            1,
             0,
             terminal.viewport().bottom() - 1,
         ));
@@ -169,9 +93,9 @@ impl Editor {
             buffers: vec![Buffer::new(document, document_viewport)],
             active_buffer_idx: 0,
             mode: Mode::default(),
-            command_parser: Parser::default(),
+            buffer_commands: BufferCommandParser::default(),
             status_bar,
-            message_bar,
+            command_line,
         })
     }
 
@@ -186,14 +110,26 @@ impl Editor {
             }
 
             match self.event_loop.next()? {
-                Event::Input(key) => {
-                    if let Some(command) = self.command_parser.parse(key, self.mode) {
-                        self.proccess_command(command)
-                            .context("unable to process command")?;
-                    };
+                Event::Input(key) => match self.mode {
+                    Mode::Normal | Mode::Insert => {
+                        self.buffer_commands.receive_input(key);
 
-                    self.update_status_bar();
-                }
+                        if let Some(command) = self.buffer_commands.matched_command(self.mode) {
+                            self.process_command(command)
+                                .context("unable to process command")?;
+
+                            self.update_status_bar();
+                        };
+                    }
+                    Mode::Command => {
+                        if let Some(command) = self.command_line.matched_command_for(key) {
+                            self.process_command(command)
+                                .context("unable to process command")?;
+
+                            self.update_status_bar();
+                        };
+                    }
+                },
                 Event::Tick => {}
                 Event::Error(e) => return Err(e),
             };
@@ -213,16 +149,19 @@ impl Editor {
         );
     }
 
-    fn proccess_command(&mut self, command: Command) -> Result<()> {
+    fn process_command(&mut self, command: Command) -> Result<()> {
         let actrive_buffer = &mut self.buffers[self.active_buffer_idx];
 
         if let Command::EnterMode(mode) = command {
             match mode {
-                Mode::Insert => {
-                    self.message_bar.clear();
-                    self.message_bar.set_message(&format!("-- {} --", mode));
+                Mode::Command => {
+                    self.command_line.start_prompt();
                 }
-                _ => self.message_bar.clear(),
+                Mode::Insert => {
+                    self.command_line.clear();
+                    self.command_line.set_message(&format!("-- {} --", mode));
+                }
+                Mode::Normal => self.command_line.clear(),
             };
 
             self.mode = mode;
@@ -230,20 +169,7 @@ impl Editor {
             return Ok(());
         }
 
-        if let Command::CommandLineBeginInput(first_char) = command {
-            self.mode = Mode::Command;
-            self.message_bar.set_message(&first_char.to_string());
-        }
-
         match command {
-            Command::CommandLineUpdateInput(input) => self.message_bar.set_message(&input),
-            Command::CommandLineExecute(command) => self.proccess_command(*command.clone())?,
-            Command::CommandLineInputAborted => {
-                self.proccess_command(Command::EnterMode(Mode::Normal))?;
-            }
-            Command::CommandLineInputNotRecognised(_) => {
-                self.proccess_command(Command::EnterMode(Mode::Normal))?;
-            }
             Command::Quit => self.should_quit = true,
             _ => actrive_buffer
                 .proccess_command(command)
@@ -262,14 +188,19 @@ impl Editor {
 
         let active_buffer = &self.buffers[self.active_buffer_idx];
         let status_bar = &self.status_bar;
-        let message_bar = &self.message_bar;
+        let command_line = &self.command_line;
+        let mode = &self.mode;
 
         self.terminal.draw(|view| {
             view.render(active_buffer);
             view.render(status_bar);
-            view.render(message_bar);
+            view.render(command_line);
 
-            view.set_cursor_position(active_buffer.cursor_position());
+            if let Mode::Command = mode {
+                view.set_cursor_position(command_line.cursor_position());
+            } else {
+                view.set_cursor_position(active_buffer.cursor_position());
+            }
 
             Ok(())
         })

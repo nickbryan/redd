@@ -29,6 +29,10 @@ impl Row {
         result
     }
 
+    pub fn contents(&self) -> String {
+        self.to_string(0, self.len())
+    }
+
     pub fn append(&mut self, new: &Self) {
         self.string = format!("{}{}", self.string, new.string);
         self.update_len();

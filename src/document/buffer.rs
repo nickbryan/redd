@@ -1,6 +1,6 @@
 use crate::{
-    command::Command,
     document::Document,
+    ops::Command,
     ui::{
         layout::{Component, Position, Rect},
         style::Style,
@@ -51,12 +51,12 @@ impl Buffer {
                     .insert(&self.cursor_position, ch)
                     .context("unable to insert character in document")?;
 
-                self.move_cursor(Command::MoveCursorRight)
+                self.move_cursor(Command::MoveCursorRight(1))
                     .context("unable to move cursor to the right")?;
             }
             Command::InsertLineBreak => {
                 self.document.insert_newline(&self.cursor_position);
-                self.move_cursor(Command::MoveCursorDown)
+                self.move_cursor(Command::MoveCursorDown(1))
                     .context("unable to move to new line")?;
                 self.move_cursor(Command::MoveCursorLineStart)
                     .context("unable to move to start of new line")?;
@@ -64,7 +64,7 @@ impl Buffer {
             Command::DeleteCharForward => self.document.delete(&self.cursor_position),
             Command::DeleteCharBackward => {
                 if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
-                    self.move_cursor(Command::MoveCursorLeft)
+                    self.move_cursor(Command::MoveCursorLeft(1))
                         .context("unable to move cursor to the left")?;
                     self.document.delete(&self.cursor_position);
                 }
@@ -97,30 +97,30 @@ impl Buffer {
         let width = self.document.row(y).map_or(0, Row::len);
 
         let (x, y) = match command {
-            Command::MoveCursorUp => (x, y.saturating_sub(1)),
-            Command::MoveCursorDown => {
+            Command::MoveCursorUp(n) => (x, y.saturating_sub(n)),
+            Command::MoveCursorDown(n) => {
                 if y < height {
-                    (x, y.saturating_add(1))
+                    (x, y.saturating_add(n))
                 } else {
                     (x, y)
                 }
             }
-            Command::MoveCursorLeft => {
+            Command::MoveCursorLeft(n) => {
                 if x > 0 {
-                    (x - 1, y)
+                    (x - n, y)
                 } else if y > 0 {
                     self.document
                         .row(y)
-                        .map_or((0, y - 1), |row| (row.len(), y - 1))
+                        .map_or((0, y - n), |row| (row.len(), y - n))
                 } else {
                     (x, y)
                 }
             }
-            Command::MoveCursorRight => {
+            Command::MoveCursorRight(n) => {
                 if x < width {
-                    (x + 1, y)
+                    (x + n, y)
                 } else if y < height {
-                    (0, y + 1)
+                    (0, y + n)
                 } else {
                     (x, y)
                 }

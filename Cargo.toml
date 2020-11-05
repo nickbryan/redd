@@ -5,7 +5,9 @@ authors = ["Nick Bryan <nickbryan.dev@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1"
+thiserror = "1"
 crossterm = "0.18"
 unicode-segmentation = "1.6"
+nom = "6"
 
