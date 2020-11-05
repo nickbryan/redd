@@ -68,17 +68,31 @@ impl CommandLine {
                 self.cursor_position.x = self.cursor_position.x.saturating_add(1);
             }
             Command::MoveCursorLeft(n) => {
-                self.cursor_position.x = self.cursor_position.x.saturating_sub(n)
+                if self.cursor_position.x > 1 {
+                    self.cursor_position.x = self.cursor_position.x.saturating_sub(n)
+                }
             }
             Command::MoveCursorRight(n) => {
-                self.cursor_position.x = self.cursor_position.x.saturating_add(n)
+                if self.cursor_position.x != self.row.len() {
+                    self.cursor_position.x = self.cursor_position.x.saturating_add(n)
+                }
             }
             Command::MoveCursorLineStart => self.cursor_position.x = 1,
             Command::MoveCursorLineEnd => self.cursor_position.x = self.row.len(),
-            Command::DeleteCharForward => self.row.delete(self.cursor_position.x),
+            Command::DeleteCharForward => {
+                self.row.delete(self.cursor_position.x);
+
+                if self.row.len() == 1 {
+                    return Some(Command::EnterMode(crate::editor::Mode::Normal));
+                }
+            }
             Command::DeleteCharBackward => {
                 self.cursor_position.x = self.cursor_position.x.saturating_sub(1);
                 self.row.delete(self.cursor_position.x);
+
+                if self.row.len() == 1 {
+                    return Some(Command::EnterMode(crate::editor::Mode::Normal));
+                }
             }
             _ => {}
         };
