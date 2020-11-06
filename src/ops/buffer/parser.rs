@@ -56,8 +56,7 @@ impl Parser {
             InputBuffer::CharacterSequence(ref sequence) => {
                 if let Some(command) = match mode {
                     Mode::Normal => normal_mode_command_for_input_sequence(sequence),
-                    Mode::Insert => insert_mode_command_for_input_sequence(sequence),
-                    Mode::Command => None,
+                    _ => None,
                 } {
                     self.input_buffer = InputBuffer::Inactive;
                     Some(command)
@@ -70,20 +69,35 @@ impl Parser {
 }
 
 fn normal_mode_command_for_key_press(key: &Key) -> Option<Command> {
-    None
+    match key {
+        Key::Home => Some(Command::MoveCursorLineStart),
+        Key::End => Some(Command::MoveCursorLineEnd),
+        Key::PageUp => Some(Command::MoveCursorPageUp),
+        Key::PageDown => Some(Command::MoveCursorPageDown),
+        Key::Insert => Some(Command::EnterMode(Mode::Insert)),
+        Key::Enter => Some(Command::MoveCursorDown(1)),
+        _ => None,
+    }
 }
 
 fn insert_mode_command_for_key_press(key: &Key) -> Option<Command> {
-    None
+    match key {
+        Key::Up => Some(Command::MoveCursorUp(1)),
+        Key::Down => Some(Command::MoveCursorDown(1)),
+        Key::Left => Some(Command::MoveCursorLeft(1)),
+        Key::Right => Some(Command::MoveCursorRight(1)),
+        Key::Home => Some(Command::MoveCursorLineStart),
+        Key::End => Some(Command::MoveCursorLineEnd),
+        Key::PageUp => Some(Command::MoveCursorPageUp),
+        Key::PageDown => Some(Command::MoveCursorPageDown),
+        Key::Delete => Some(Command::DeleteCharForward),
+        Key::Backspace => Some(Command::DeleteCharBackward),
+        Key::Enter => Some(Command::InsertLineBreak),
+        Key::Char(ch) => Some(Command::InsertChar(*ch)),
+        _ => None,
+    }
 }
 
 fn normal_mode_command_for_input_sequence(sequence: &str) -> Option<Command> {
-    if sequence == ":" {
-        return Some(Command::EnterMode(Mode::Command));
-    }
-    None
-}
-
-fn insert_mode_command_for_input_sequence(sequence: &str) -> Option<Command> {
-    None
+    super::normal::parse(sequence)
 }

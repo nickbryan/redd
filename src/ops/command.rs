@@ -1,5 +1,6 @@
 use crate::editor::Mode;
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Command {
     EnterMode(Mode),
 
