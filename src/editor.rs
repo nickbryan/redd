@@ -112,9 +112,9 @@ impl Editor {
             match self.event_loop.next()? {
                 Event::Input(key) => match self.mode {
                     Mode::Normal | Mode::Insert => {
-                        self.buffer_commands.receive_input(key);
-
-                        if let Some(command) = self.buffer_commands.matched_command(self.mode) {
+                        if let Some(command) =
+                            self.buffer_commands.matched_command_for(key, self.mode)
+                        {
                             self.process_command(command)
                                 .context("unable to process command")?;
 

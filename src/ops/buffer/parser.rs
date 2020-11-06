@@ -7,63 +7,39 @@ enum InputBuffer {
 }
 
 pub struct Parser {
-    input_buffer: InputBuffer,
+    input_buffer: String,
 }
 
 impl Default for Parser {
     fn default() -> Self {
         Self {
-            input_buffer: InputBuffer::Inactive,
+            input_buffer: String::new(),
         }
     }
 }
 
 impl Parser {
-    pub fn receive_input(&mut self, key: Key) {
-        match key {
-            Key::Char(ch) => {
-                match self.input_buffer {
-                    InputBuffer::Inactive => {
-                        self.input_buffer = InputBuffer::CharacterSequence(String::from(ch))
-                    }
-                    InputBuffer::CharacterSequence(ref mut sequence) => sequence.push(ch),
-                    InputBuffer::KeyPress(_) => {
-                        /* TODO: throw a error here */
-                        panic!("this should not happen");
-                    }
-                };
-            }
-            // TODO: handle error cases here
-            _ => self.input_buffer = InputBuffer::KeyPress(key),
-        }
-    }
+    pub fn matched_command_for(&mut self, key: Key, mode: Mode) -> Option<Command> {
+        match mode {
+            Mode::Normal => {
+                if let Key::Char(ch) = key {
+                    self.input_buffer.push(ch);
+                }
 
-    pub fn matched_command(&mut self, mode: Mode) -> Option<Command> {
-        match self.input_buffer {
-            InputBuffer::Inactive => None,
-            InputBuffer::KeyPress(ref key) => {
-                if let Some(command) = match mode {
-                    Mode::Normal => normal_mode_command_for_key_press(key),
-                    Mode::Insert => insert_mode_command_for_key_press(key),
-                    Mode::Command => None,
-                } {
-                    self.input_buffer = InputBuffer::Inactive;
+                if let Key::Esc = key {
+                    self.input_buffer.clear();
+                }
+
+                if let Some(command) = normal_mode_command_for_key_press(&key) {
                     Some(command)
                 } else {
-                    None
+                    let command = normal_mode_command_for_input_sequence(&self.input_buffer);
+                    self.input_buffer.clear();
+                    command
                 }
             }
-            InputBuffer::CharacterSequence(ref sequence) => {
-                if let Some(command) = match mode {
-                    Mode::Normal => normal_mode_command_for_input_sequence(sequence),
-                    _ => None,
-                } {
-                    self.input_buffer = InputBuffer::Inactive;
-                    Some(command)
-                } else {
-                    None
-                }
-            }
+            Mode::Insert => insert_mode_command_for_key_press(&key),
+            Mode::Command => None,
         }
     }
 }
@@ -94,6 +70,7 @@ fn insert_mode_command_for_key_press(key: &Key) -> Option<Command> {
         Key::Backspace => Some(Command::DeleteCharBackward),
         Key::Enter => Some(Command::InsertLineBreak),
         Key::Char(ch) => Some(Command::InsertChar(*ch)),
+        Key::Esc => Some(Command::EnterMode(Mode::Normal)),
         _ => None,
     }
 }
