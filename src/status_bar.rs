@@ -1,6 +1,6 @@
 use crate::{
     editor::Mode,
-    ui::layout::{Component, Rect},
+    ui::layout::{Component, Position, Rect},
     ui::style::{Color, Style},
     ui::FrameBuffer,
 };
@@ -10,7 +10,7 @@ pub struct StatusBar {
     viewport: Rect,
     mode: Mode,
     line_count: usize,
-    current_line: usize,
+    cursor_position: Position,
     file_name: String,
 }
 
@@ -22,10 +22,16 @@ impl StatusBar {
         }
     }
 
-    pub fn update(&mut self, mode: Mode, line_count: usize, current_line: usize, file_name: &str) {
+    pub fn update(
+        &mut self,
+        mode: Mode,
+        line_count: usize,
+        cursor_position: Position,
+        file_name: &str,
+    ) {
         self.mode = mode;
         self.line_count = line_count;
-        self.current_line = current_line;
+        self.cursor_position = cursor_position;
         self.file_name = file_name.into();
     }
 }
@@ -33,7 +39,12 @@ impl StatusBar {
 impl Component for StatusBar {
     fn render(&self, buffer: &mut FrameBuffer) {
         let mut status = format!("Mode: [{}]    File: {}", self.mode, self.file_name);
-        let line_indicator = format!("{}/{}", self.current_line, self.line_count);
+        let line_indicator = format!(
+            "L: {}/{} C: {}",
+            self.cursor_position.y,
+            self.line_count,
+            self.cursor_position.x + 1
+        );
 
         let len = status.len() + line_indicator.len();
 

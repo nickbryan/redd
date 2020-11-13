@@ -71,6 +71,7 @@ impl Document {
             }
             Ordering::Less => {
                 let row = self.rows.get_mut(at.y).unwrap();
+                row.insert(at.x, ch);
                 Ok(())
             }
             Ordering::Greater => Err(Error::from(std::io::Error::new(

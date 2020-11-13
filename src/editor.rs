@@ -144,7 +144,7 @@ impl Editor {
         self.status_bar.update(
             self.mode,
             active_buffer.lines_in_document(),
-            active_buffer.cursor_position().y,
+            active_buffer.cursor_position(),
             &active_buffer.document_name(),
         );
     }
