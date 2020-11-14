@@ -1,11 +1,5 @@
 use crate::{editor::Mode, io::event::Key, ops::Command};
 
-enum InputBuffer {
-    Inactive,
-    KeyPress(Key),
-    CharacterSequence(String),
-}
-
 pub struct Parser {
     input_buffer: String,
 }
@@ -30,21 +24,22 @@ impl Parser {
                     self.input_buffer.clear();
                 }
 
-                if let Some(command) = normal_mode_command_for_key_press(&key) {
-                    Some(command)
-                } else {
-                    let command = normal_mode_command_for_input_sequence(&self.input_buffer);
-                    self.input_buffer.clear();
-                    command
-                }
+                normal_mode_command_for_key_press(key).map_or_else(
+                    || {
+                        let command = normal_mode_command_for_input_sequence(&self.input_buffer);
+                        self.input_buffer.clear();
+                        command
+                    },
+                    Some,
+                )
             }
-            Mode::Insert => insert_mode_command_for_key_press(&key),
+            Mode::Insert => insert_mode_command_for_key_press(key),
             Mode::Command => None,
         }
     }
 }
 
-fn normal_mode_command_for_key_press(key: &Key) -> Option<Command> {
+fn normal_mode_command_for_key_press(key: Key) -> Option<Command> {
     match key {
         Key::Home => Some(Command::MoveCursorLineStart),
         Key::End => Some(Command::MoveCursorLineEnd),
@@ -56,7 +51,7 @@ fn normal_mode_command_for_key_press(key: &Key) -> Option<Command> {
     }
 }
 
-fn insert_mode_command_for_key_press(key: &Key) -> Option<Command> {
+fn insert_mode_command_for_key_press(key: Key) -> Option<Command> {
     match key {
         Key::Up => Some(Command::MoveCursorUp(1)),
         Key::Down => Some(Command::MoveCursorDown(1)),
@@ -69,7 +64,7 @@ fn insert_mode_command_for_key_press(key: &Key) -> Option<Command> {
         Key::Delete => Some(Command::DeleteCharForward),
         Key::Backspace => Some(Command::DeleteCharBackward),
         Key::Enter => Some(Command::InsertLineBreak),
-        Key::Char(ch) => Some(Command::InsertChar(*ch)),
+        Key::Char(ch) => Some(Command::InsertChar(ch)),
         Key::Esc => Some(Command::EnterMode(Mode::Normal)),
         _ => None,
     }
