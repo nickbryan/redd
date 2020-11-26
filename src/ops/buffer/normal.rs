@@ -37,7 +37,7 @@ fn single_move_action(input: &str) -> IResult<&str, Command> {
     })(input)
 }
 
-fn muli_move_action(input: &str) -> IResult<&str, Command> {
+fn multi_move_action(input: &str) -> IResult<&str, Command> {
     map(pair(multiplier, movement_key), |(m, c)| match c {
         'h' => Command::MoveCursorLeft(m.parse::<usize>().unwrap()),
         'j' => Command::MoveCursorDown(m.parse::<usize>().unwrap()),
@@ -48,15 +48,15 @@ fn muli_move_action(input: &str) -> IResult<&str, Command> {
 }
 
 fn movement_action(input: &str) -> IResult<&str, Command> {
-    alt((single_move_action, muli_move_action))(input)
+    alt((single_move_action, multi_move_action))(input)
 }
 
 pub fn parse(input: &str) -> Option<Command> {
     if let Ok((_, command)) =
         all_consuming(alt((command_mode, insert_mode, movement_action)))(input)
     {
-        Some(command)
-    } else {
-        None
+        return Some(command);
     }
+
+    None
 }

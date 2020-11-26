@@ -126,6 +126,9 @@ impl Editor {
                             self.process_command(command)
                                 .context("unable to process command")?;
 
+                            self.process_command(Command::EnterMode(Mode::Normal))
+                                .context("unable to process command")?;
+
                             self.update_status_bar();
                         };
                     }
