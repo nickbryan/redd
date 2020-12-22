@@ -1,7 +1,7 @@
 [workspace]
 
 members = [
-    "editor",
-    "tui",
-    "webui",
+    "vie_core",
+    "vie_tui",
+    "vie_webui",
 ]
