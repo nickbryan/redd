@@ -1,3 +1,9 @@
+/// A part of the ui that can be rendered to the screen. This allows for widgeits/components to be
+/// able to be responsible for their own drawing to the current frame buffer.
+pub trait Component {
+    fn render(&self, buffer: &mut frame::Buffer);
+}
+
 /// A position in ui space.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub struct Position {
