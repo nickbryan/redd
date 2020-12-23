@@ -10,10 +10,7 @@ use std::{
     thread,
     time::Duration,
 };
-use vie_core::{
-    backend::{Backend, Event, Key as VieKey},
-    ui::{frame, Color as VieColor, Rect},
-};
+use vie_core::{frame, Backend, Color as VieColor, Event, Key as VieKey, Rect};
 
 /// Newtype to allow mapping VieColor to CrosstermColor.
 struct Color(VieColor);
