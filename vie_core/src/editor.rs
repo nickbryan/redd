@@ -2,13 +2,13 @@ use crate::{backend::Backend, viewport::Viewport};
 use anyhow::Result;
 
 /// The main application state.
-pub struct Editor<B: Backend> {
-    viewport: Viewport<B>,
+pub struct Editor<'a, B: Backend> {
+    viewport: Viewport<'a, B>,
 }
 
-impl<B: Backend> Editor<B> {
+impl<'a, B: Backend> Editor<'a, B> {
     /// Create a new Editor.
-    pub fn new(backend: B) -> Result<Self> {
+    pub fn new(backend: &'a mut B) -> Result<Self> {
         use anyhow::Context;
 
         Ok(Self {

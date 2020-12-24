@@ -33,16 +33,16 @@ impl<'a> Frame<'a> {
 
 /// The area of the screen that we can draw to. The Viewport is responsible for handling
 /// interactions with the backed and drawing.
-pub struct Viewport<B: Backend> {
+pub struct Viewport<'a, B: Backend> {
     area: Rect,
-    backend: B,
+    backend: &'a mut B,
     buffers: [frame::Buffer; 2],
     current_buffer_idx: usize,
 }
 
-impl<B: Backend> Viewport<B> {
+impl<'a, B: Backend> Viewport<'a, B> {
     /// Create a new Viewport for the provided Backend.
-    pub fn new(backend: B) -> Result<Self> {
+    pub fn new(backend: &'a mut B) -> Result<Self> {
         use anyhow::Context;
 
         let area = backend.size().context("unable to set Viewport area")?;
@@ -103,5 +103,32 @@ impl<B: Backend> Viewport<B> {
     fn swap_buffers(&mut self) {
         self.buffers[1 - self.current_buffer_idx].reset();
         self.current_buffer_idx = 1 - self.current_buffer_idx;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Frame, Viewport};
+    use crate::{
+        backend::testutil::{CapturedOut, MockBackendBuilder},
+        ui::Position,
+    };
+    use anyhow::Result;
+
+    #[test]
+    fn position_can_be_updated_through_frame() {
+        let mut backend = MockBackendBuilder::new().build();
+        let mut viewport = Viewport::new(&mut backend).unwrap();
+
+        viewport
+            .draw(|frame| -> Result<()> {
+                frame.set_cursor_position(Position::new(10, 10));
+                Ok(())
+            })
+            .unwrap();
+
+        assert!(backend
+            .captured_out()
+            .contains(&CapturedOut::PositionCursor { col: 10, row: 10 }));
     }
 }

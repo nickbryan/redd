@@ -7,8 +7,8 @@ fn main() {
 
     if let Err(e) = CrosstermBackend::new(io::stdout(), Duration::from_millis(250))
         .context("unable to create CrosstermBackend")
-        .and_then(|backend| {
-            Editor::new(backend)
+        .and_then(|mut backend| {
+            Editor::new(&mut backend)
                 .context("unable to initialise Editor")
                 .and_then(|mut editor| {
                     editor

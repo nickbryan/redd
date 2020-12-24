@@ -170,7 +170,7 @@ impl<W: Write> Backend for CrosstermBackend<W> {
         Ok(())
     }
 
-    fn read_event(&self) -> Result<Event> {
+    fn read_event(&mut self) -> Result<Event> {
         use anyhow::Context;
 
         match self.rx.as_ref() {

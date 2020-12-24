@@ -230,6 +230,7 @@ pub mod frame {
         }
     }
 
+    /// Raised by the Buffer when trying to access a cell that is out of bounds.
     #[derive(Error, Debug)]
     #[error("trying to access index out of bounds")]
     pub struct OutOfBoundsError;
