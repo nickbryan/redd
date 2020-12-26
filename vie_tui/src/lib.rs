@@ -10,7 +10,7 @@ use std::{
     thread,
     time::Duration,
 };
-use vie_core::{frame, Backend, Color as VieColor, Event, Key as VieKey, Rect};
+use vie_core::{frame, Color as VieColor, Event, EventLoop, Grid, Key as VieKey, Rect};
 
 /// Newtype to allow mapping VieColor to CrosstermColor.
 struct Color(VieColor);
@@ -29,21 +29,15 @@ fn crossterm_to_io_error(e: crossterm::ErrorKind) -> IoError {
     }
 }
 
-/// Backend implementation for crossterm.
-pub struct CrosstermBackend<W: Write> {
-    out: W,
+pub struct CrosstermEventLoop {
     rx: Option<Receiver<Event>>,
     tick_rate: Duration,
 }
 
-impl<W: Write> CrosstermBackend<W> {
-    /// Creates a new CrosstermBackend and starts listening for events.
-    pub fn new(mut out: W, tick_rate: Duration) -> Result<Self, IoError> {
-        crossterm::terminal::enable_raw_mode().map_err(crossterm_to_io_error)?;
-        crossterm::execute!(out, EnterAlternateScreen).map_err(crossterm_to_io_error)?;
-
+impl CrosstermEventLoop {
+    /// Creates a new CrosstermEventLoop and starts listening for events.
+    pub fn new(tick_rate: Duration) -> Result<Self, IoError> {
         let mut backend = Self {
-            out,
             rx: None,
             tick_rate,
         };
@@ -90,7 +84,33 @@ impl<W: Write> CrosstermBackend<W> {
     }
 }
 
-impl<W: Write> Drop for CrosstermBackend<W> {
+impl EventLoop for CrosstermEventLoop {
+    fn read_event(&mut self) -> Result<Event> {
+        use anyhow::Context;
+
+        match self.rx.as_ref() {
+            Some(rx) => rx.recv().context("unable to recieve from event channel"),
+            None => panic!("trying to read from event channel that has not been initialised"),
+        }
+    }
+}
+
+/// Grid implementation for crossterm.
+pub struct CrosstermGrid<W: Write> {
+    out: W,
+}
+
+impl<W: Write> CrosstermGrid<W> {
+    /// Creates a new CrosstermGrid.
+    pub fn new(mut out: W) -> Result<Self, IoError> {
+        crossterm::terminal::enable_raw_mode().map_err(crossterm_to_io_error)?;
+        crossterm::execute!(out, EnterAlternateScreen).map_err(crossterm_to_io_error)?;
+
+        Ok(Self { out })
+    }
+}
+
+impl<W: Write> Drop for CrosstermGrid<W> {
     /// Ensures that we LeaveAlternateScreen and disable_raw_mode before the application ends to
     /// return the user terminal back to normal.
     fn drop(&mut self) {
@@ -100,7 +120,7 @@ impl<W: Write> Drop for CrosstermBackend<W> {
     }
 }
 
-impl<W: Write> Backend for CrosstermBackend<W> {
+impl<W: Write> Grid for CrosstermGrid<W> {
     fn clear(&mut self) -> Result<(), IoError> {
         crossterm::queue!(self.out, Clear(ClearType::All)).map_err(crossterm_to_io_error)?;
         Ok(())
@@ -168,15 +188,6 @@ impl<W: Write> Backend for CrosstermBackend<W> {
 
         crossterm::queue!(self.out, MoveTo(x, y)).map_err(crossterm_to_io_error)?;
         Ok(())
-    }
-
-    fn read_event(&mut self) -> Result<Event> {
-        use anyhow::Context;
-
-        match self.rx.as_ref() {
-            Some(rx) => rx.recv().context("unable to recieve from event channel"),
-            None => panic!("trying to read from event channel that has not been initialised"),
-        }
     }
 
     fn show_cursor(&mut self) -> Result<(), IoError> {
@@ -293,7 +304,7 @@ impl From<crossterm::event::KeyEvent> for Key {
 #[cfg(test)]
 mod tests {
     use super::crossterm_to_io_error;
-    use super::CrosstermBackend;
+    use super::CrosstermGrid;
 
     #[test]
     fn crossterm_ioerror_to_std_ioerror_maps_correctly() {
@@ -341,7 +352,7 @@ mod tests {
     fn crossterm_backend_enters_and_leaves_alternate_screen() {
         let mut out: Vec<u8> = Vec::new();
 
-        let backend = CrosstermBackend::new(&mut out, std::time::Duration::from_secs(1));
+        let backend = CrosstermGrid::new(&mut out);
         drop(backend);
 
         assert_eq!(

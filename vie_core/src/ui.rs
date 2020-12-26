@@ -80,6 +80,33 @@ impl Rect {
 }
 
 #[cfg(test)]
+pub(crate) mod testutil {
+    use super::{frame, Component, Style};
+
+    pub(crate) struct MockComponent {
+        lines: Vec<String>,
+    }
+
+    impl MockComponent {
+        pub(crate) fn new() -> Self {
+            Self { lines: Vec::new() }
+        }
+
+        pub(crate) fn add_line(&mut self, text: &str) {
+            self.lines.push(text.into());
+        }
+    }
+
+    impl Component for MockComponent {
+        fn render(&self, buffer: &mut frame::Buffer) {
+            for (i, line) in self.lines.iter().enumerate() {
+                buffer.write_line(i, line, &Style::default());
+            }
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::{Position, Rect};
 

@@ -1,5 +1,5 @@
 use crate::{
-    backend::Backend,
+    backend::Grid,
     ui::{frame, Component, Position, Rect},
 };
 use anyhow::Result;
@@ -32,24 +32,24 @@ impl<'a> Frame<'a> {
 }
 
 /// The area of the screen that we can draw to. The Viewport is responsible for handling
-/// interactions with the backed and drawing.
-pub struct Viewport<'a, B: Backend> {
+/// interactions with the backend and drawing.
+pub struct Viewport<'a, G: Grid> {
     area: Rect,
-    backend: &'a mut B,
+    grid: &'a mut G,
     buffers: [frame::Buffer; 2],
     current_buffer_idx: usize,
 }
 
-impl<'a, B: Backend> Viewport<'a, B> {
-    /// Create a new Viewport for the provided Backend.
-    pub fn new(backend: &'a mut B) -> Result<Self> {
+impl<'a, G: Grid> Viewport<'a, G> {
+    /// Create a new Viewport for the provided Grid.
+    pub fn new(grid: &'a mut G) -> Result<Self> {
         use anyhow::Context;
 
-        let area = backend.size().context("unable to set Viewport area")?;
+        let area = grid.size().context("unable to set Viewport area")?;
 
         Ok(Self {
             area,
-            backend,
+            grid,
             buffers: [frame::Buffer::empty(area), frame::Buffer::empty(area)],
             current_buffer_idx: 0,
         })
@@ -69,7 +69,7 @@ impl<'a, B: Backend> Viewport<'a, B> {
     {
         use anyhow::Context;
 
-        self.backend
+        self.grid
             .hide_cursor()
             .context("unable to hide cursor pre draw")?;
 
@@ -83,21 +83,21 @@ impl<'a, B: Backend> Viewport<'a, B> {
         let current_buffer = &self.buffers[self.current_buffer_idx];
         let changes = previous_buffer.diff(current_buffer);
 
-        self.backend
+        self.grid
             .draw(changes.into_iter())
             .context("unable to draw buffer diff")?;
 
-        self.backend
+        self.grid
             .position_cursor(next_cursor_pos.row, next_cursor_pos.col)
             .context("unable to set cursor position for next frame render")?;
 
-        self.backend
+        self.grid
             .show_cursor()
             .context("unable to show cursor post draw")?;
 
         self.swap_buffers();
 
-        self.backend.flush().context("unable to flush backend")
+        self.grid.flush().context("unable to flush grid")
     }
 
     fn swap_buffers(&mut self) {
@@ -108,27 +108,100 @@ impl<'a, B: Backend> Viewport<'a, B> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Frame, Viewport};
+    use super::Viewport;
     use crate::{
-        backend::testutil::{CapturedOut, MockBackendBuilder},
-        ui::Position,
+        backend::testutil::{CapturedOut, MockGrid},
+        ui::{testutil::MockComponent, Position},
     };
     use anyhow::Result;
 
     #[test]
-    fn position_can_be_updated_through_frame() {
-        let mut backend = MockBackendBuilder::new().build();
-        let mut viewport = Viewport::new(&mut backend).unwrap();
+    fn cursor_position_can_be_updated_through_frame() {
+        let mut grid = MockGrid::new(10, 10);
+        let mut viewport = Viewport::new(&mut grid).unwrap();
 
         viewport
             .draw(|frame| -> Result<()> {
-                frame.set_cursor_position(Position::new(10, 10));
+                frame.set_cursor_position(Position::new(9, 9));
                 Ok(())
             })
             .unwrap();
 
-        assert!(backend
+        assert!(grid
             .captured_out()
-            .contains(&CapturedOut::PositionCursor { col: 10, row: 10 }));
+            .contains(&CapturedOut::PositionCursor { col: 9, row: 9 }));
+    }
+
+    #[test]
+    fn cursor_is_hidden_during_rendering_to_prevent_flicker() {
+        let mut grid = MockGrid::new(10, 10);
+        let mut viewport = Viewport::new(&mut grid).unwrap();
+
+        viewport.draw(|_| -> Result<()> { Ok(()) }).unwrap();
+
+        assert_eq!(
+            &[
+                CapturedOut::HideCursor,
+                CapturedOut::Draw(String::new()),
+                CapturedOut::PositionCursor { col: 0, row: 0 },
+                CapturedOut::ShowCursor,
+                CapturedOut::Flush
+            ],
+            grid.captured_out()
+        );
+    }
+
+    #[test]
+    fn component_can_be_drawn_to_frame() {
+        let mut grid = MockGrid::new(10, 10);
+        let mut viewport = Viewport::new(&mut grid).unwrap();
+
+        viewport
+            .draw(|frame| -> Result<()> {
+                let mut component = MockComponent::new();
+                // If we used a " " instead of "-", our diff would not render the space due to the
+                // buffer defaulting to a full buffer of empty spaces.
+                // The draw assertion would look like &CapturedOut::Draw("HelloWorld!".into()).
+                component.add_line("Hello-World!");
+                frame.render(component);
+                Ok(())
+            })
+            .unwrap();
+
+        assert!(grid
+            .captured_out()
+            .contains(&CapturedOut::Draw("Hello-World!".into())));
+    }
+
+    #[test]
+    fn only_changes_are_drawn_to_the_grid() {
+        let mut grid = MockGrid::new(10, 10);
+        let mut viewport = Viewport::new(&mut grid).unwrap();
+
+        viewport
+            .draw(|frame| -> Result<()> {
+                let mut component = MockComponent::new();
+                component.add_line("Hello World!");
+                frame.render(component);
+                Ok(())
+            })
+            .unwrap();
+
+        viewport
+            .draw(|frame| -> Result<()> {
+                let mut component = MockComponent::new();
+                component.add_line("Hello Girl");
+                frame.render(component);
+                Ok(())
+            })
+            .unwrap();
+
+        assert!(grid
+            .captured_out()
+            .contains(&CapturedOut::Draw("HelloWorld!".into())));
+
+        assert!(grid
+            .captured_out()
+            .contains(&CapturedOut::Draw("Gi  ".into())));
     }
 }
