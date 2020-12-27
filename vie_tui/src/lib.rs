@@ -29,6 +29,7 @@ fn crossterm_to_io_error(e: crossterm::ErrorKind) -> IoError {
     }
 }
 
+/// EventLoop implementation for Crossterm.
 pub struct CrosstermEventLoop {
     rx: Option<Receiver<Event>>,
     tick_rate: Duration,
@@ -85,11 +86,14 @@ impl CrosstermEventLoop {
 }
 
 impl EventLoop for CrosstermEventLoop {
-    fn read_event(&mut self) -> Result<Event> {
+    fn read_event(&mut self) -> Result<Event, IoError> {
         use anyhow::Context;
 
         match self.rx.as_ref() {
-            Some(rx) => rx.recv().context("unable to recieve from event channel"),
+            Some(rx) => rx
+                .recv()
+                .context("unable to recieve from event loop channel")
+                .map_err(|e| IoError::new(io::ErrorKind::BrokenPipe, format!("{}", e))),
             None => panic!("trying to read from event channel that has not been initialised"),
         }
     }

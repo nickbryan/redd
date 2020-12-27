@@ -106,6 +106,15 @@ impl<'a, G: Grid> Viewport<'a, G> {
     }
 }
 
+impl<'a, G: Grid> Drop for Viewport<'a, G> {
+    /// When the Viewport goes out of scope (application has ended) we want to ensure that the
+    /// screen is cleared and flushed to leave the user with a clean terminal.
+    fn drop(&mut self) {
+        self.grid.clear().unwrap();
+        self.grid.flush().unwrap();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Viewport;
@@ -118,14 +127,16 @@ mod tests {
     #[test]
     fn cursor_position_can_be_updated_through_frame() {
         let mut grid = MockGrid::new(10, 10);
-        let mut viewport = Viewport::new(&mut grid).unwrap();
 
-        viewport
-            .draw(|frame| -> Result<()> {
-                frame.set_cursor_position(Position::new(9, 9));
-                Ok(())
-            })
-            .unwrap();
+        {
+            let mut viewport = Viewport::new(&mut grid).unwrap();
+            viewport
+                .draw(|frame| -> Result<()> {
+                    frame.set_cursor_position(Position::new(9, 9));
+                    Ok(())
+                })
+                .unwrap();
+        }
 
         assert!(grid
             .captured_out()
@@ -133,19 +144,23 @@ mod tests {
     }
 
     #[test]
-    fn cursor_is_hidden_during_rendering_to_prevent_flicker() {
+    fn backend_interaction_order() {
         let mut grid = MockGrid::new(10, 10);
-        let mut viewport = Viewport::new(&mut grid).unwrap();
 
-        viewport.draw(|_| -> Result<()> { Ok(()) }).unwrap();
+        {
+            let mut viewport = Viewport::new(&mut grid).unwrap();
+            viewport.draw(|_| -> Result<()> { Ok(()) }).unwrap();
+        }
 
         assert_eq!(
             &[
-                CapturedOut::HideCursor,
+                CapturedOut::HideCursor, // Hidden during drawing to prevent flicker.
                 CapturedOut::Draw(String::new()),
                 CapturedOut::PositionCursor { col: 0, row: 0 },
                 CapturedOut::ShowCursor,
-                CapturedOut::Flush
+                CapturedOut::Flush,
+                CapturedOut::Clear, // Cleared on drop.
+                CapturedOut::Flush,
             ],
             grid.captured_out()
         );
@@ -154,19 +169,21 @@ mod tests {
     #[test]
     fn component_can_be_drawn_to_frame() {
         let mut grid = MockGrid::new(10, 10);
-        let mut viewport = Viewport::new(&mut grid).unwrap();
 
-        viewport
-            .draw(|frame| -> Result<()> {
-                let mut component = MockComponent::new();
-                // If we used a " " instead of "-", our diff would not render the space due to the
-                // buffer defaulting to a full buffer of empty spaces.
-                // The draw assertion would look like &CapturedOut::Draw("HelloWorld!".into()).
-                component.add_line("Hello-World!");
-                frame.render(component);
-                Ok(())
-            })
-            .unwrap();
+        {
+            let mut viewport = Viewport::new(&mut grid).unwrap();
+            viewport
+                .draw(|frame| -> Result<()> {
+                    let mut component = MockComponent::new();
+                    // If we used a " " instead of "-", our diff would not render the space due to the
+                    // buffer defaulting to a full buffer of empty spaces.
+                    // The draw assertion would look like &CapturedOut::Draw("HelloWorld!".into()).
+                    component.add_line("Hello-World!");
+                    frame.render(component);
+                    Ok(())
+                })
+                .unwrap();
+        }
 
         assert!(grid
             .captured_out()
@@ -176,25 +193,27 @@ mod tests {
     #[test]
     fn only_changes_are_drawn_to_the_grid() {
         let mut grid = MockGrid::new(10, 10);
-        let mut viewport = Viewport::new(&mut grid).unwrap();
 
-        viewport
-            .draw(|frame| -> Result<()> {
-                let mut component = MockComponent::new();
-                component.add_line("Hello World!");
-                frame.render(component);
-                Ok(())
-            })
-            .unwrap();
+        {
+            let mut viewport = Viewport::new(&mut grid).unwrap();
+            viewport
+                .draw(|frame| -> Result<()> {
+                    let mut component = MockComponent::new();
+                    component.add_line("Hello World!");
+                    frame.render(component);
+                    Ok(())
+                })
+                .unwrap();
 
-        viewport
-            .draw(|frame| -> Result<()> {
-                let mut component = MockComponent::new();
-                component.add_line("Hello Girl");
-                frame.render(component);
-                Ok(())
-            })
-            .unwrap();
+            viewport
+                .draw(|frame| -> Result<()> {
+                    let mut component = MockComponent::new();
+                    component.add_line("Hello Girl");
+                    frame.render(component);
+                    Ok(())
+                })
+                .unwrap();
+        }
 
         assert!(grid
             .captured_out()

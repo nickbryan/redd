@@ -41,7 +41,7 @@ pub enum Event {
 /// Tick Event should be triggered to allow the application to do other work.
 pub trait EventLoop {
     /// Read and wait for the next event.
-    fn read_event(&mut self) -> Result<Event>;
+    fn read_event(&mut self) -> Result<Event, IoError>;
 }
 
 /// Grid is an interface to the ui. It could be the terminal or web ui.
@@ -80,7 +80,7 @@ pub(crate) mod testutil {
     }
 
     impl EventLoop for MockEventLoop {
-        fn read_event(&mut self) -> Result<Event> {
+        fn read_event(&mut self) -> Result<Event, IoError> {
             match self.events.pop_front() {
                 Some(e) => Ok(e),
                 None => Ok(Event::Input(Key::Unknown)),
