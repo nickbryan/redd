@@ -5,13 +5,23 @@ use crate::{
 use anyhow::Result;
 use thiserror::Error;
 
+pub enum Transition {
+    None,
+}
+
 pub trait Mode {
-    fn process(&mut self, key: Key);
+    fn recieve_input(&mut self, key: Key);
+
+    fn next_transition(&self) -> Transition;
 }
 
 pub struct NormalMode {}
 impl Mode for NormalMode {
-    fn process(&mut self, key: Key) {}
+    fn recieve_input(&mut self, key: Key) {}
+
+    fn next_transition(&self) -> Transition {
+        Transition::None
+    }
 }
 
 #[derive(Error, Debug)]
@@ -34,9 +44,13 @@ impl<'a, E: EventLoop, G: Grid, M: Mode> Editor<'a, E, G, M> {
     pub fn run(&mut self) -> Result<(), EditorError> {
         while !self.should_quit {
             match self.event_loop.read_event()? {
-                Event::Input(key) => self.mode.process(key),
-                Event::Tick => {}
+                Event::Input(key) => self.mode.recieve_input(key),
+                Event::Tick => (),
                 Event::Error(e) => return Err(EditorError::from(e)),
+            };
+
+            match self.mode.next_transition() {
+                Transition::None => (),
             };
 
             self.viewport

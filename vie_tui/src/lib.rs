@@ -70,7 +70,7 @@ impl CrosstermEventLoop {
 
                         break;
                     }
-                    Ok(ctevent::Event::Mouse(_)) | Ok(ctevent::Event::Resize(_, _)) => {}
+                    Ok(ctevent::Event::Mouse(_)) | Ok(ctevent::Event::Resize(_, _)) => (),
                 },
                 Ok(false) => tx.send(Event::Tick).unwrap(),
                 Err(e) => {
