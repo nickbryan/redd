@@ -1,5 +1,5 @@
 use crate::{
-    backend::{Event, EventLoop, Grid, Key},
+    backend::{Canvas, Event, EventLoop, Key},
     viewport::Viewport,
 };
 use anyhow::Result;
@@ -33,14 +33,14 @@ pub enum EditorError {
 }
 
 /// The main application state.
-pub struct Editor<'a, E: EventLoop, G: Grid, M: Mode> {
+pub struct Editor<'a, E: EventLoop, C: Canvas, M: Mode> {
     event_loop: E,
-    viewport: Viewport<'a, G>,
+    viewport: Viewport<'a, C>,
     mode: M,
     should_quit: bool,
 }
 
-impl<'a, E: EventLoop, G: Grid, M: Mode> Editor<'a, E, G, M> {
+impl<'a, E: EventLoop, C: Canvas, M: Mode> Editor<'a, E, C, M> {
     pub fn run(&mut self) -> Result<(), EditorError> {
         while !self.should_quit {
             match self.event_loop.read_event()? {
@@ -62,14 +62,14 @@ impl<'a, E: EventLoop, G: Grid, M: Mode> Editor<'a, E, G, M> {
     }
 }
 
-impl<'a, E: EventLoop, G: Grid> Editor<'a, E, G, NormalMode> {
+impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C, NormalMode> {
     /// Create a new Editor.
-    pub fn new(event_loop: E, grid: &'a mut G) -> Result<Self> {
+    pub fn new(event_loop: E, canvas: &'a mut C) -> Result<Self> {
         use anyhow::Context;
 
         Ok(Self {
             event_loop,
-            viewport: Viewport::new(grid).context("unable to initialise Viewport")?,
+            viewport: Viewport::new(canvas).context("unable to initialise Viewport")?,
             mode: NormalMode {},
             should_quit: false,
         })

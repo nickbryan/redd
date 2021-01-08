@@ -1,5 +1,5 @@
 use crate::{
-    backend::Grid,
+    backend::Canvas,
     ui::{frame, Component, Position, Rect},
 };
 use anyhow::Result;
@@ -33,23 +33,23 @@ impl<'a> Frame<'a> {
 
 /// The area of the screen that we can draw to. The Viewport is responsible for handling
 /// interactions with the backend and drawing.
-pub struct Viewport<'a, G: Grid> {
+pub struct Viewport<'a, C: Canvas> {
     area: Rect,
-    grid: &'a mut G,
+    canvas: &'a mut C,
     buffers: [frame::Buffer; 2],
     current_buffer_idx: usize,
 }
 
-impl<'a, G: Grid> Viewport<'a, G> {
-    /// Create a new Viewport for the provided Grid.
-    pub fn new(grid: &'a mut G) -> Result<Self> {
+impl<'a, C: Canvas> Viewport<'a, C> {
+    /// Create a new Viewport for the provided Canvas.
+    pub fn new(canvas: &'a mut C) -> Result<Self> {
         use anyhow::Context;
 
-        let area = grid.size().context("unable to set Viewport area")?;
+        let area = canvas.size().context("unable to set Viewport area")?;
 
         Ok(Self {
             area,
-            grid,
+            canvas,
             buffers: [frame::Buffer::empty(area), frame::Buffer::empty(area)],
             current_buffer_idx: 0,
         })
@@ -69,7 +69,7 @@ impl<'a, G: Grid> Viewport<'a, G> {
     {
         use anyhow::Context;
 
-        self.grid
+        self.canvas
             .hide_cursor()
             .context("unable to hide cursor pre draw")?;
 
@@ -83,21 +83,21 @@ impl<'a, G: Grid> Viewport<'a, G> {
         let current_buffer = &self.buffers[self.current_buffer_idx];
         let changes = previous_buffer.diff(current_buffer);
 
-        self.grid
+        self.canvas
             .draw(changes.into_iter())
             .context("unable to draw buffer diff")?;
 
-        self.grid
+        self.canvas
             .position_cursor(next_cursor_pos.row, next_cursor_pos.col)
             .context("unable to set cursor position for next frame render")?;
 
-        self.grid
+        self.canvas
             .show_cursor()
             .context("unable to show cursor post draw")?;
 
         self.swap_buffers();
 
-        self.grid.flush().context("unable to flush grid")
+        self.canvas.flush().context("unable to flush canvas")
     }
 
     fn swap_buffers(&mut self) {
@@ -106,12 +106,12 @@ impl<'a, G: Grid> Viewport<'a, G> {
     }
 }
 
-impl<'a, G: Grid> Drop for Viewport<'a, G> {
+impl<'a, G: Canvas> Drop for Viewport<'a, G> {
     /// When the Viewport goes out of scope (application has ended) we want to ensure that the
     /// screen is cleared and flushed to leave the user with a clean terminal.
     fn drop(&mut self) {
-        self.grid.clear().unwrap();
-        self.grid.flush().unwrap();
+        self.canvas.clear().unwrap();
+        self.canvas.flush().unwrap();
     }
 }
 
@@ -119,17 +119,17 @@ impl<'a, G: Grid> Drop for Viewport<'a, G> {
 mod tests {
     use super::Viewport;
     use crate::{
-        backend::testutil::{CapturedOut, MockGrid},
+        backend::testutil::{CapturedOut, MockCanvas},
         ui::{testutil::MockComponent, Position},
     };
     use anyhow::Result;
 
     #[test]
     fn cursor_position_can_be_updated_through_frame() {
-        let mut grid = MockGrid::new(10, 10);
+        let mut canvas = MockCanvas::new(10, 10);
 
         {
-            let mut viewport = Viewport::new(&mut grid).unwrap();
+            let mut viewport = Viewport::new(&mut canvas).unwrap();
             viewport
                 .draw(|frame| -> Result<()> {
                     frame.set_cursor_position(Position::new(9, 9));
@@ -138,17 +138,17 @@ mod tests {
                 .unwrap();
         }
 
-        assert!(grid
+        assert!(canvas
             .captured_out()
             .contains(&CapturedOut::PositionCursor { col: 9, row: 9 }));
     }
 
     #[test]
     fn backend_interaction_order() {
-        let mut grid = MockGrid::new(10, 10);
+        let mut canvas = MockCanvas::new(10, 10);
 
         {
-            let mut viewport = Viewport::new(&mut grid).unwrap();
+            let mut viewport = Viewport::new(&mut canvas).unwrap();
             viewport.draw(|_| -> Result<()> { Ok(()) }).unwrap();
         }
 
@@ -162,16 +162,16 @@ mod tests {
                 CapturedOut::Clear, // Cleared on drop.
                 CapturedOut::Flush,
             ],
-            grid.captured_out()
+            canvas.captured_out()
         );
     }
 
     #[test]
     fn component_can_be_drawn_to_frame() {
-        let mut grid = MockGrid::new(10, 10);
+        let mut canvas = MockCanvas::new(10, 10);
 
         {
-            let mut viewport = Viewport::new(&mut grid).unwrap();
+            let mut viewport = Viewport::new(&mut canvas).unwrap();
             viewport
                 .draw(|frame| -> Result<()> {
                     let mut component = MockComponent::new();
@@ -185,17 +185,17 @@ mod tests {
                 .unwrap();
         }
 
-        assert!(grid
+        assert!(canvas
             .captured_out()
             .contains(&CapturedOut::Draw("Hello-World!".into())));
     }
 
     #[test]
-    fn only_changes_are_drawn_to_the_grid() {
-        let mut grid = MockGrid::new(10, 10);
+    fn only_changes_are_drawn_to_the_canvas() {
+        let mut canvas = MockCanvas::new(10, 10);
 
         {
-            let mut viewport = Viewport::new(&mut grid).unwrap();
+            let mut viewport = Viewport::new(&mut canvas).unwrap();
             viewport
                 .draw(|frame| -> Result<()> {
                     let mut component = MockComponent::new();
@@ -215,11 +215,11 @@ mod tests {
                 .unwrap();
         }
 
-        assert!(grid
+        assert!(canvas
             .captured_out()
             .contains(&CapturedOut::Draw("HelloWorld!".into())));
 
-        assert!(grid
+        assert!(canvas
             .captured_out()
             .contains(&CapturedOut::Draw("Gi  ".into())));
     }

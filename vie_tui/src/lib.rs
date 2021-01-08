@@ -10,7 +10,7 @@ use std::{
     thread,
     time::Duration,
 };
-use vie_core::{frame, Color as VieColor, Event, EventLoop, Grid, Key as VieKey, Rect};
+use vie_core::{frame, Canvas, Color as VieColor, Event, EventLoop, Key as VieKey, Rect};
 
 /// Newtype to allow mapping VieColor to CrosstermColor.
 struct Color(VieColor);
@@ -99,13 +99,13 @@ impl EventLoop for CrosstermEventLoop {
     }
 }
 
-/// Grid implementation for crossterm.
-pub struct CrosstermGrid<W: Write> {
+/// Canvas implementation for crossterm.
+pub struct CrosstermCanvas<W: Write> {
     out: W,
 }
 
-impl<W: Write> CrosstermGrid<W> {
-    /// Creates a new CrosstermGrid.
+impl<W: Write> CrosstermCanvas<W> {
+    /// Creates a new CrosstermCanvas.
     pub fn new(mut out: W) -> Result<Self, IoError> {
         crossterm::terminal::enable_raw_mode().map_err(crossterm_to_io_error)?;
         crossterm::execute!(out, EnterAlternateScreen).map_err(crossterm_to_io_error)?;
@@ -114,7 +114,7 @@ impl<W: Write> CrosstermGrid<W> {
     }
 }
 
-impl<W: Write> Drop for CrosstermGrid<W> {
+impl<W: Write> Drop for CrosstermCanvas<W> {
     /// Ensures that we LeaveAlternateScreen and disable_raw_mode before the application ends to
     /// return the user terminal back to normal.
     fn drop(&mut self) {
@@ -124,7 +124,7 @@ impl<W: Write> Drop for CrosstermGrid<W> {
     }
 }
 
-impl<W: Write> Grid for CrosstermGrid<W> {
+impl<W: Write> Canvas for CrosstermCanvas<W> {
     fn clear(&mut self) -> Result<(), IoError> {
         crossterm::queue!(self.out, Clear(ClearType::All)).map_err(crossterm_to_io_error)?;
         Ok(())
@@ -308,7 +308,7 @@ impl From<crossterm::event::KeyEvent> for Key {
 #[cfg(test)]
 mod tests {
     use super::crossterm_to_io_error;
-    use super::CrosstermGrid;
+    use super::CrosstermCanvas;
 
     #[test]
     fn crossterm_ioerror_to_std_ioerror_maps_correctly() {
@@ -356,7 +356,7 @@ mod tests {
     fn crossterm_backend_enters_and_leaves_alternate_screen() {
         let mut out: Vec<u8> = Vec::new();
 
-        let backend = CrosstermGrid::new(&mut out);
+        let backend = CrosstermCanvas::new(&mut out);
         drop(backend);
 
         assert_eq!(

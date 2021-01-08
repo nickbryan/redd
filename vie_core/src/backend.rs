@@ -44,8 +44,8 @@ pub trait EventLoop {
     fn read_event(&mut self) -> Result<Event, IoError>;
 }
 
-/// Grid is an interface to the ui. It could be the terminal or web ui.
-pub trait Grid {
+/// Canvas is an interface to the ui. It could be the terminal or web ui.
+pub trait Canvas {
     /// Clear the ui.
     fn clear(&mut self) -> Result<(), IoError>;
 
@@ -70,7 +70,7 @@ pub trait Grid {
 
 #[cfg(test)]
 pub(crate) mod testutil {
-    use super::{Event, EventLoop, Grid, Key};
+    use super::{Canvas, Event, EventLoop, Key};
     use crate::ui::{frame, Rect};
     use anyhow::Result;
     use std::{collections::VecDeque, io::Error as IoError};
@@ -117,7 +117,7 @@ pub(crate) mod testutil {
         }
     }
 
-    /// Provides the ability to assert output captured by the MockGrid.
+    /// Provides the ability to assert output captured by the MockCanvas.
     #[derive(Debug, PartialEq, Eq)]
     pub(crate) enum CapturedOut {
         Clear,
@@ -128,15 +128,15 @@ pub(crate) mod testutil {
         ShowCursor,
     }
 
-    /// A mocked version of Grid. Events can be queued to later be read from read_event. All
+    /// A mocked version of Canvas. Events can be queued to later be read from read_event. All
     /// output that would usually be passed to the underlying Write will be captured to be asserted
     /// later.
-    pub(crate) struct MockGrid {
+    pub(crate) struct MockCanvas {
         captured_out: Vec<CapturedOut>,
         size: Rect,
     }
 
-    impl MockGrid {
+    impl MockCanvas {
         pub(crate) fn new(cols: usize, rows: usize) -> Self {
             Self {
                 captured_out: Vec::new(),
@@ -149,7 +149,7 @@ pub(crate) mod testutil {
         }
     }
 
-    impl Grid for MockGrid {
+    impl Canvas for MockCanvas {
         fn clear(&mut self) -> Result<(), IoError> {
             self.captured_out.push(CapturedOut::Clear);
             Ok(())
