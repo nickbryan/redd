@@ -1,28 +1,10 @@
 use crate::{
-    backend::{Canvas, Event, EventLoop, Key},
+    backend::{Canvas, Event, EventLoop},
+    mode::{Descriptor, Mode, NormalMode},
     viewport::Viewport,
 };
 use anyhow::Result;
 use thiserror::Error;
-
-pub enum Transition {
-    None,
-}
-
-pub trait Mode {
-    fn recieve_input(&mut self, key: Key);
-
-    fn next_transition(&self) -> Transition;
-}
-
-pub struct NormalMode {}
-impl Mode for NormalMode {
-    fn recieve_input(&mut self, key: Key) {}
-
-    fn next_transition(&self) -> Transition {
-        Transition::None
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum EditorError {
@@ -44,14 +26,23 @@ impl<'a, E: EventLoop, C: Canvas, M: Mode> Editor<'a, E, C, M> {
     pub fn run(&mut self) -> Result<(), EditorError> {
         while !self.should_quit {
             match self.event_loop.read_event()? {
-                Event::Input(key) => self.mode.recieve_input(key),
+                Event::Input(key) => {
+                    if let crate::backend::Key::Char('q') = key {
+                        self.should_quit = true;
+                    }
+                    self.mode.recieve_input(key);
+                }
                 Event::Tick => (),
                 Event::Error(e) => return Err(EditorError::from(e)),
             };
 
-            match self.mode.next_transition() {
-                Transition::None => (),
-            };
+            if let Some(mode) = self.mode.next_transition() {
+                match mode {
+                    Descriptor::Insert => (),
+                    Descriptor::Normal => (),
+                    Descriptor::Command => (),
+                };
+            }
 
             self.viewport
                 .draw(|frame| Ok(()))
@@ -70,7 +61,7 @@ impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C, NormalMode> {
         Ok(Self {
             event_loop,
             viewport: Viewport::new(canvas).context("unable to initialise Viewport")?,
-            mode: NormalMode {},
+            mode: NormalMode::default(),
             should_quit: false,
         })
     }
