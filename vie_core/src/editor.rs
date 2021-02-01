@@ -1,6 +1,7 @@
 use crate::{
     backend::{Canvas, Event, EventLoop},
-    mode::{Descriptor, Mode, NormalMode},
+    command::{Command, Parser, ParserMode},
+    ui::{frame, Color, Component, Position, Rect, Style},
     viewport::Viewport,
 };
 use anyhow::Result;
@@ -15,37 +16,60 @@ pub enum EditorError {
 }
 
 /// The main application state.
-pub struct Editor<'a, E: EventLoop, C: Canvas, M: Mode> {
+pub struct Editor<'a, E: EventLoop, C: Canvas> {
     event_loop: E,
-    viewport: Viewport<'a, C>,
-    mode: M,
+    mode: ParserMode,
     should_quit: bool,
+    viewport: Viewport<'a, C>,
 }
 
-impl<'a, E: EventLoop, C: Canvas, M: Mode> Editor<'a, E, C, M> {
+impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
+    /// Create a new Editor.
+    pub fn new(event_loop: E, canvas: &'a mut C) -> Result<Self> {
+        use anyhow::Context;
+
+        Ok(Self {
+            event_loop,
+            mode: ParserMode::default(),
+            should_quit: false,
+            viewport: Viewport::new(canvas).context("unable to initialise Viewport")?,
+        })
+    }
+
     pub fn run(&mut self) -> Result<(), EditorError> {
         while !self.should_quit {
             match self.event_loop.read_event()? {
                 Event::Input(key) => {
-                    if let crate::backend::Key::Char('q') = key {
-                        self.should_quit = true;
+                    if let Some(command) = self.mode.parse(key) {
+                        match command {
+                            Command::Quit => self.should_quit = true,
+                            _ => (),
+                        }
                     }
-                    self.mode.recieve_input(key);
                 }
                 Event::Tick => (),
                 Event::Error(e) => return Err(EditorError::from(e)),
             };
 
-            if let Some(mode) = self.mode.next_transition() {
-                match mode {
-                    Descriptor::Insert => (),
-                    Descriptor::Normal => (),
-                    Descriptor::Command => (),
-                };
-            }
-
+            let viewport_area = self.viewport.area();
+            let mode = self.mode.to_string();
             self.viewport
-                .draw(|frame| Ok(()))
+                .draw(|frame| {
+                    frame.render(StatusBar {
+                        area: Rect::positioned(
+                            viewport_area.width,
+                            1,
+                            0,
+                            viewport_area.bottom() - 2,
+                        ),
+                        mode,
+                        line_count: 0,
+                        cursor_position: Position::default(),
+                        file_name: String::new(),
+                    });
+
+                    Ok(())
+                })
                 .map_err(|e| EditorError::Render(e))?;
         }
 
@@ -53,16 +77,40 @@ impl<'a, E: EventLoop, C: Canvas, M: Mode> Editor<'a, E, C, M> {
     }
 }
 
-impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C, NormalMode> {
-    /// Create a new Editor.
-    pub fn new(event_loop: E, canvas: &'a mut C) -> Result<Self> {
-        use anyhow::Context;
+// TODO: Status bar should be a part of the document as it is reporting on
+// the status of the document. Each document view should have its own status
+// bar as the last row.
+struct StatusBar {
+    pub area: Rect,
+    pub mode: String,
+    pub line_count: usize,
+    pub cursor_position: Position,
+    pub file_name: String,
+}
 
-        Ok(Self {
-            event_loop,
-            viewport: Viewport::new(canvas).context("unable to initialise Viewport")?,
-            mode: NormalMode::default(),
-            should_quit: false,
-        })
+impl Component for StatusBar {
+    fn render(&self, buffer: &mut frame::Buffer) {
+        let mut status = format!("Mode: [{}]    File: {}", self.mode, self.file_name);
+        let line_indicator = format!(
+            "L: {}/{} C: {}",
+            self.cursor_position.row,
+            self.line_count,
+            self.cursor_position.col + 1
+        );
+
+        let len = status.len() + line_indicator.len();
+
+        if self.area.width > len {
+            status.push_str(&" ".repeat(self.area.width - len));
+        }
+
+        status = format!("{}{}", status, line_indicator);
+        status.truncate(self.area.width);
+
+        buffer.write_line(
+            self.area.top(),
+            &status,
+            &Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
+        );
     }
 }
