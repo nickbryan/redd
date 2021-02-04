@@ -1,6 +1,6 @@
 use crate::{
     backend::{Canvas, Event, EventLoop},
-    command::{Command, Parser, ParserMode},
+    command::{Command, Parser, Parsers},
     ui::{frame, Color, Component, Position, Rect, Style},
     viewport::Viewport,
 };
@@ -16,31 +16,33 @@ pub enum EditorError {
 }
 
 /// The main application state.
-pub struct Editor<'a, E: EventLoop, C: Canvas> {
+pub struct Editor<'a, E: EventLoop, C: Canvas, P: Parser> {
     event_loop: E,
-    mode: ParserMode,
+    parser: P,
     should_quit: bool,
     viewport: Viewport<'a, C>,
 }
 
-impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
+impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C, Parsers> {
     /// Create a new Editor.
     pub fn new(event_loop: E, canvas: &'a mut C) -> Result<Self> {
         use anyhow::Context;
 
         Ok(Self {
             event_loop,
-            mode: ParserMode::default(),
+            parser: Parsers::default(),
             should_quit: false,
             viewport: Viewport::new(canvas).context("unable to initialise Viewport")?,
         })
     }
+}
 
+impl<'a, E: EventLoop, C: Canvas, P: Parser> Editor<'a, E, C, P> {
     pub fn run(&mut self) -> Result<(), EditorError> {
         while !self.should_quit {
             match self.event_loop.read_event()? {
                 Event::Input(key) => {
-                    if let Some(command) = self.mode.parse(key) {
+                    if let Some(command) = self.parser.parse(key) {
                         match command {
                             Command::Quit => self.should_quit = true,
                             _ => (),
@@ -52,7 +54,8 @@ impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
             };
 
             let viewport_area = self.viewport.area();
-            let mode = self.mode.to_string();
+            let mode = self.parser.display_name();
+            let command_line_message = self.parser.contents();
             self.viewport
                 .draw(|frame| {
                     frame.render(StatusBar {
@@ -66,6 +69,16 @@ impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
                         line_count: 0,
                         cursor_position: Position::default(),
                         file_name: String::new(),
+                    });
+
+                    frame.render(CommandLineView {
+                        area: Rect::positioned(
+                            viewport_area.width,
+                            1,
+                            0,
+                            viewport_area.bottom() - 1,
+                        ),
+                        text: String::new(),
                     });
 
                     Ok(())
@@ -112,5 +125,16 @@ impl Component for StatusBar {
             &status,
             &Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
         );
+    }
+}
+
+struct CommandLineView {
+    pub area: Rect,
+    pub text: String,
+}
+
+impl Component for CommandLineView {
+    fn render(&self, buffer: &mut frame::Buffer) {
+        buffer.write_line(self.area.top(), &self.text, &Style::default());
     }
 }

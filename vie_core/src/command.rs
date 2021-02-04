@@ -1,7 +1,7 @@
 use crate::{backend::Key, row::Row, ui::Position};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum ModeTransition {
+pub enum Mode {
     Execute,
     Insert,
     Normal,
@@ -9,7 +9,7 @@ pub enum ModeTransition {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Command {
-    EnterMode(ModeTransition),
+    EnterMode(Mode),
     InsertChar(char),
     InsertLineBreak,
     DeleteCharForward,
@@ -31,16 +31,17 @@ pub enum Command {
 }
 
 pub trait Parser {
+    fn display_name(&self) -> String;
     fn parse(&mut self, key: Key) -> Option<Command>;
 }
 
-pub enum ParserMode {
+pub enum Parsers {
     Execute(ExecuteParser),
     Insert(InsertParser),
     Normal(NormalParser),
 }
 
-impl Default for ParserMode {
+impl Default for Parsers {
     fn default() -> Self {
         Self::Normal(NormalParser {
             input_buffer: String::new(),
@@ -48,7 +49,15 @@ impl Default for ParserMode {
     }
 }
 
-impl Parser for ParserMode {
+impl Parser for Parsers {
+    fn display_name(&self) -> String {
+        match self {
+            Self::Execute(parser) => parser.display_name(),
+            Self::Insert(parser) => parser.display_name(),
+            Self::Normal(parser) => parser.display_name(),
+        }
+    }
+
     fn parse(&mut self, key: Key) -> Option<Command> {
         let command = match self {
             Self::Execute(parser) => parser.parse(key),
@@ -58,28 +67,18 @@ impl Parser for ParserMode {
 
         if let Some(Command::EnterMode(ref mode)) = command {
             *self = match mode {
-                ModeTransition::Execute => Self::Execute(ExecuteParser {
+                Mode::Execute => Self::Execute(ExecuteParser {
                     row: Row::default(),
                     cursor_position: Position::default(),
                 }),
-                ModeTransition::Insert => Self::Insert(InsertParser {}),
-                ModeTransition::Normal => Self::Normal(NormalParser {
+                Mode::Insert => Self::Insert(InsertParser {}),
+                Mode::Normal => Self::Normal(NormalParser {
                     input_buffer: String::new(),
                 }),
             }
         }
 
         command
-    }
-}
-
-impl std::fmt::Display for ParserMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Execute(_) => write!(f, "COMMAND"),
-            Self::Insert(_) => write!(f, "INSERT"),
-            Self::Normal(_) => write!(f, "NORMAL"),
-        }
     }
 }
 
@@ -120,7 +119,7 @@ impl ExecuteParser {
                 self.row.delete(self.cursor_position.col);
 
                 if self.row.len() == 1 {
-                    return Some(Command::EnterMode(ModeTransition::Normal));
+                    return Some(Command::EnterMode(Mode::Normal));
                 }
 
                 None
@@ -130,7 +129,7 @@ impl ExecuteParser {
                 self.row.delete(self.cursor_position.col);
 
                 if self.row.len() == 1 {
-                    return Some(Command::EnterMode(ModeTransition::Normal));
+                    return Some(Command::EnterMode(Mode::Normal));
                 }
 
                 None
@@ -142,9 +141,17 @@ impl ExecuteParser {
     pub fn cursor_position(&self) -> Position {
         self.cursor_position
     }
+
+    pub fn contents(&self) -> String {
+        self.row.contents()
+    }
 }
 
 impl Parser for ExecuteParser {
+    fn display_name(&self) -> String {
+        "Execute".into()
+    }
+
     fn parse(&mut self, key: Key) -> Option<Command> {
         if let Key::Enter = key {
             return execute_mode::command_for_input(&self.row.contents());
@@ -158,7 +165,7 @@ impl Parser for ExecuteParser {
             Key::Delete => Some(Command::DeleteCharForward),
             Key::Home => Some(Command::MoveCursorLineStart),
             Key::End => Some(Command::MoveCursorLineEnd),
-            Key::Esc => Some(Command::EnterMode(ModeTransition::Normal)),
+            Key::Esc => Some(Command::EnterMode(Mode::Normal)),
             _ => None,
         }
         .and_then(|command| self.execute_command(command))
@@ -245,6 +252,10 @@ mod execute_mode {
 pub struct InsertParser {}
 
 impl Parser for InsertParser {
+    fn display_name(&self) -> String {
+        "Insert".into()
+    }
+
     fn parse(&mut self, key: Key) -> Option<Command> {
         match key {
             Key::Up => Some(Command::MoveCursorUp(1)),
@@ -259,7 +270,7 @@ impl Parser for InsertParser {
             Key::Backspace => Some(Command::DeleteCharBackward),
             Key::Enter => Some(Command::InsertLineBreak),
             Key::Char(ch) => Some(Command::InsertChar(ch)),
-            Key::Esc => Some(Command::EnterMode(ModeTransition::Normal)),
+            Key::Esc => Some(Command::EnterMode(Mode::Normal)),
             _ => None,
         }
     }
@@ -270,6 +281,10 @@ pub struct NormalParser {
 }
 
 impl Parser for NormalParser {
+    fn display_name(&self) -> String {
+        "Normal".into()
+    }
+
     fn parse(&mut self, key: Key) -> Option<Command> {
         if let Key::Char(ch) = key {
             self.input_buffer.push(ch);
@@ -284,7 +299,7 @@ impl Parser for NormalParser {
             Key::End => Some(Command::MoveCursorLineEnd),
             Key::PageUp => Some(Command::MoveCursorPageUp),
             Key::PageDown => Some(Command::MoveCursorPageDown),
-            Key::Insert => Some(Command::EnterMode(ModeTransition::Insert)),
+            Key::Insert => Some(Command::EnterMode(Mode::Insert)),
             Key::Enter => Some(Command::MoveCursorDown(1)),
             _ => None,
         }
@@ -300,7 +315,7 @@ impl Parser for NormalParser {
 }
 
 mod normal_mode {
-    use super::{Command, ModeTransition};
+    use super::{Command, Mode};
     use nom::{
         branch::alt,
         character::complete::{char, digit0, one_of},
@@ -319,11 +334,11 @@ mod normal_mode {
     }
 
     fn command_mode(input: &str) -> IResult<&str, Command> {
-        value(Command::EnterMode(ModeTransition::Execute), char(':'))(input)
+        value(Command::EnterMode(Mode::Execute), char(':'))(input)
     }
 
     fn insert_mode(input: &str) -> IResult<&str, Command> {
-        value(Command::EnterMode(ModeTransition::Insert), char('i'))(input)
+        value(Command::EnterMode(Mode::Insert), char('i'))(input)
     }
 
     fn non_zero_digit(input: &str) -> IResult<&str, char> {
