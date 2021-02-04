@@ -1,10 +1,27 @@
 use crate::{backend::Key, row::Row, ui::Position};
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Mode {
-    Execute,
-    Insert,
-    Normal,
+    Execute(ExecuteMode),
+    Insert(InsertMode),
+    Normal(NormalMode),
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Self::Normal(NormalMode::default())
+    }
+}
+
+impl Display for Mode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::Execute(_) => write!(f, "COMMAND"),
+            Self::Insert(_) => write!(f, "INSERT"),
+            Self::Normal(_) => write!(f, "NORMAL"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -30,64 +47,32 @@ pub enum Command {
     Quit,
 }
 
-pub trait Parser {
-    fn display_name(&self) -> String;
-    fn parse(&mut self, key: Key) -> Option<Command>;
-}
-
-pub enum Parsers {
-    Execute(ExecuteParser),
-    Insert(InsertParser),
-    Normal(NormalParser),
-}
-
-impl Default for Parsers {
-    fn default() -> Self {
-        Self::Normal(NormalParser {
-            input_buffer: String::new(),
-        })
-    }
-}
-
-impl Parser for Parsers {
-    fn display_name(&self) -> String {
-        match self {
-            Self::Execute(parser) => parser.display_name(),
-            Self::Insert(parser) => parser.display_name(),
-            Self::Normal(parser) => parser.display_name(),
-        }
-    }
-
-    fn parse(&mut self, key: Key) -> Option<Command> {
-        let command = match self {
-            Self::Execute(parser) => parser.parse(key),
-            Self::Insert(parser) => parser.parse(key),
-            Self::Normal(parser) => parser.parse(key),
-        };
-
-        if let Some(Command::EnterMode(ref mode)) = command {
-            *self = match mode {
-                Mode::Execute => Self::Execute(ExecuteParser {
-                    row: Row::default(),
-                    cursor_position: Position::default(),
-                }),
-                Mode::Insert => Self::Insert(InsertParser {}),
-                Mode::Normal => Self::Normal(NormalParser {
-                    input_buffer: String::new(),
-                }),
-            }
-        }
-
-        command
-    }
-}
-
-pub struct ExecuteParser {
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct ExecuteMode {
     row: Row,
     cursor_position: Position,
 }
 
-impl ExecuteParser {
+impl ExecuteMode {
+    pub fn handle(&mut self, key: Key) -> Option<Command> {
+        if let Key::Enter = key {
+            return execute_mode::command_for_input(&self.row.contents());
+        }
+
+        match key {
+            Key::Char(ch) => Some(Command::InsertChar(ch)),
+            Key::Left => Some(Command::MoveCursorLeft(1)),
+            Key::Right => Some(Command::MoveCursorRight(1)),
+            Key::Backspace => Some(Command::DeleteCharBackward),
+            Key::Delete => Some(Command::DeleteCharForward),
+            Key::Home => Some(Command::MoveCursorLineStart),
+            Key::End => Some(Command::MoveCursorLineEnd),
+            Key::Esc => Some(Command::EnterMode(Mode::Normal(NormalMode::default()))),
+            _ => None,
+        }
+        .and_then(|command| self.execute_command(command))
+    }
+
     fn execute_command(&mut self, command: Command) -> Option<Command> {
         match command {
             Command::InsertChar(ch) => {
@@ -119,7 +104,7 @@ impl ExecuteParser {
                 self.row.delete(self.cursor_position.col);
 
                 if self.row.len() == 1 {
-                    return Some(Command::EnterMode(Mode::Normal));
+                    return Some(Command::EnterMode(Mode::Normal(NormalMode::default())));
                 }
 
                 None
@@ -129,7 +114,7 @@ impl ExecuteParser {
                 self.row.delete(self.cursor_position.col);
 
                 if self.row.len() == 1 {
-                    return Some(Command::EnterMode(Mode::Normal));
+                    return Some(Command::EnterMode(Mode::Normal(NormalMode::default())));
                 }
 
                 None
@@ -144,31 +129,6 @@ impl ExecuteParser {
 
     pub fn contents(&self) -> String {
         self.row.contents()
-    }
-}
-
-impl Parser for ExecuteParser {
-    fn display_name(&self) -> String {
-        "Execute".into()
-    }
-
-    fn parse(&mut self, key: Key) -> Option<Command> {
-        if let Key::Enter = key {
-            return execute_mode::command_for_input(&self.row.contents());
-        }
-
-        match key {
-            Key::Char(ch) => Some(Command::InsertChar(ch)),
-            Key::Left => Some(Command::MoveCursorLeft(1)),
-            Key::Right => Some(Command::MoveCursorRight(1)),
-            Key::Backspace => Some(Command::DeleteCharBackward),
-            Key::Delete => Some(Command::DeleteCharForward),
-            Key::Home => Some(Command::MoveCursorLineStart),
-            Key::End => Some(Command::MoveCursorLineEnd),
-            Key::Esc => Some(Command::EnterMode(Mode::Normal)),
-            _ => None,
-        }
-        .and_then(|command| self.execute_command(command))
     }
 }
 
@@ -249,14 +209,11 @@ mod execute_mode {
     }
 }
 
-pub struct InsertParser {}
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct InsertMode;
 
-impl Parser for InsertParser {
-    fn display_name(&self) -> String {
-        "Insert".into()
-    }
-
-    fn parse(&mut self, key: Key) -> Option<Command> {
+impl InsertMode {
+    pub fn handle(&mut self, key: Key) -> Option<Command> {
         match key {
             Key::Up => Some(Command::MoveCursorUp(1)),
             Key::Down => Some(Command::MoveCursorDown(1)),
@@ -270,22 +227,19 @@ impl Parser for InsertParser {
             Key::Backspace => Some(Command::DeleteCharBackward),
             Key::Enter => Some(Command::InsertLineBreak),
             Key::Char(ch) => Some(Command::InsertChar(ch)),
-            Key::Esc => Some(Command::EnterMode(Mode::Normal)),
+            Key::Esc => Some(Command::EnterMode(Mode::Normal(NormalMode::default()))),
             _ => None,
         }
     }
 }
 
-pub struct NormalParser {
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
+pub struct NormalMode {
     input_buffer: String,
 }
 
-impl Parser for NormalParser {
-    fn display_name(&self) -> String {
-        "Normal".into()
-    }
-
-    fn parse(&mut self, key: Key) -> Option<Command> {
+impl NormalMode {
+    pub fn handle(&mut self, key: Key) -> Option<Command> {
         if let Key::Char(ch) = key {
             self.input_buffer.push(ch);
         }
@@ -299,7 +253,7 @@ impl Parser for NormalParser {
             Key::End => Some(Command::MoveCursorLineEnd),
             Key::PageUp => Some(Command::MoveCursorPageUp),
             Key::PageDown => Some(Command::MoveCursorPageDown),
-            Key::Insert => Some(Command::EnterMode(Mode::Insert)),
+            Key::Insert => Some(Command::EnterMode(Mode::Insert(InsertMode::default()))),
             Key::Enter => Some(Command::MoveCursorDown(1)),
             _ => None,
         }
@@ -315,7 +269,7 @@ impl Parser for NormalParser {
 }
 
 mod normal_mode {
-    use super::{Command, Mode};
+    use super::{Command, ExecuteMode, InsertMode, Mode};
     use nom::{
         branch::alt,
         character::complete::{char, digit0, one_of},
@@ -334,11 +288,17 @@ mod normal_mode {
     }
 
     fn command_mode(input: &str) -> IResult<&str, Command> {
-        value(Command::EnterMode(Mode::Execute), char(':'))(input)
+        value(
+            Command::EnterMode(Mode::Execute(ExecuteMode::default())),
+            char(':'),
+        )(input)
     }
 
     fn insert_mode(input: &str) -> IResult<&str, Command> {
-        value(Command::EnterMode(Mode::Insert), char('i'))(input)
+        value(
+            Command::EnterMode(Mode::Insert(InsertMode::default())),
+            char('i'),
+        )(input)
     }
 
     fn non_zero_digit(input: &str) -> IResult<&str, char> {

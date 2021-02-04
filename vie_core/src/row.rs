@@ -1,7 +1,7 @@
 use unicode_segmentation::UnicodeSegmentation;
 
 /// A single row of text within the editor.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Row {
     string: String,
 }

@@ -1,6 +1,6 @@
 use crate::{
     backend::{Canvas, Event, EventLoop},
-    command::{Command, Parser, Parsers},
+    command::{Command, Mode},
     ui::{frame, Color, Component, Position, Rect, Style},
     viewport::Viewport,
 };
@@ -16,35 +16,38 @@ pub enum EditorError {
 }
 
 /// The main application state.
-pub struct Editor<'a, E: EventLoop, C: Canvas, P: Parser> {
+pub struct Editor<'a, E: EventLoop, C: Canvas> {
     event_loop: E,
-    parser: P,
+    mode: Mode,
     should_quit: bool,
     viewport: Viewport<'a, C>,
 }
 
-impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C, Parsers> {
+impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
     /// Create a new Editor.
     pub fn new(event_loop: E, canvas: &'a mut C) -> Result<Self> {
         use anyhow::Context;
 
         Ok(Self {
             event_loop,
-            parser: Parsers::default(),
+            mode: Mode::default(),
             should_quit: false,
             viewport: Viewport::new(canvas).context("unable to initialise Viewport")?,
         })
     }
-}
 
-impl<'a, E: EventLoop, C: Canvas, P: Parser> Editor<'a, E, C, P> {
     pub fn run(&mut self) -> Result<(), EditorError> {
         while !self.should_quit {
             match self.event_loop.read_event()? {
                 Event::Input(key) => {
-                    if let Some(command) = self.parser.parse(key) {
+                    if let Some(command) = match self.mode {
+                        Mode::Execute(ref mut mode) => mode.handle(key),
+                        Mode::Insert(ref mut mode) => mode.handle(key),
+                        Mode::Normal(ref mut mode) => mode.handle(key),
+                    } {
                         match command {
                             Command::Quit => self.should_quit = true,
+                            Command::EnterMode(mode) => self.mode = mode,
                             _ => (),
                         }
                     }
@@ -54,8 +57,7 @@ impl<'a, E: EventLoop, C: Canvas, P: Parser> Editor<'a, E, C, P> {
             };
 
             let viewport_area = self.viewport.area();
-            let mode = self.parser.display_name();
-            let command_line_message = self.parser.contents();
+            let mode = self.mode.to_string();
             self.viewport
                 .draw(|frame| {
                     frame.render(StatusBar {
