@@ -1,5 +1,6 @@
 mod backend;
 mod command;
+mod command_line;
 mod editor;
 mod row;
 mod ui;

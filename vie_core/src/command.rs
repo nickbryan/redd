@@ -26,6 +26,7 @@ impl Display for Mode {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Command {
+    AbortCommandLineInput,
     EndCommandLineInput,
     ParseCommandLineInput(String),
 
@@ -68,7 +69,7 @@ impl ExecuteMode {
             Key::Delete => Some(Command::DeleteCharForward),
             Key::Home => Some(Command::MoveCursorLineStart),
             Key::End => Some(Command::MoveCursorLineEnd),
-            Key::Esc => Some(Command::EnterMode(Mode::Normal(NormalMode::default()))),
+            Key::Esc => Some(Command::AbortCommandLineInput),
             _ => None,
         }
     }

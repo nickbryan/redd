@@ -1,7 +1,7 @@
 use crate::{
     backend::{Canvas, Event, EventLoop},
     command::{Command, Mode, NormalMode},
-    row::Row,
+    command_line::CommandLine,
     ui::{frame, Color, Component, Position, Rect, Style},
     viewport::Viewport,
 };
@@ -33,10 +33,12 @@ impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
         let viewport = Viewport::new(canvas).context("unable to initialise Viewport")?;
 
         Ok(Self {
-            command_line: CommandLine {
-                area: Rect::positioned(viewport.area().width, 1, 0, viewport.area().bottom() - 1),
-                ..Default::default()
-            },
+            command_line: CommandLine::new(Rect::positioned(
+                viewport.area().width,
+                1,
+                0,
+                viewport.area().bottom() - 1,
+            )),
             event_loop,
             mode: Mode::default(),
             should_quit: false,
@@ -60,38 +62,7 @@ impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
                 Event::Error(e) => return Err(EditorError::from(e)),
             };
 
-            let viewport_area = self.viewport.area();
-            let mode = &self.mode;
-            let command_line = &self.command_line;
-            self.viewport
-                .draw(|frame| {
-                    frame.render(StatusBar {
-                        area: Rect::positioned(
-                            viewport_area.width,
-                            1,
-                            0,
-                            viewport_area.bottom() - 2,
-                        ),
-                        mode: mode.to_string(),
-                        line_count: 0,
-                        cursor_position: Position::default(),
-                        file_name: String::new(),
-                    });
-
-                    if let Mode::Execute(_) = mode {
-                        frame.set_cursor_position(Position::new(
-                            viewport_area
-                                .position
-                                .col
-                                .saturating_add(command_line.cursor_position().col),
-                            viewport_area.bottom() - 1,
-                        ));
-                        frame.render(command_line);
-                    }
-
-                    Ok(())
-                })
-                .map_err(|e| EditorError::Render(e))?;
+            self.render()?;
         }
 
         Ok(())
@@ -124,6 +95,39 @@ impl<'a, E: EventLoop, C: Canvas> Editor<'a, E, C> {
                 // Pass to buffer or whatever here.
             }
         }
+    }
+
+    fn render(&mut self) -> Result<(), EditorError> {
+        let viewport_area = self.viewport.area();
+        let mode = &self.mode;
+        let command_line = &self.command_line;
+
+        self.viewport
+            .draw(|frame| {
+                frame.render(StatusBar {
+                    area: Rect::positioned(viewport_area.width, 1, 0, viewport_area.bottom() - 2),
+                    mode: mode.to_string(),
+                    line_count: 0,
+                    cursor_position: Position::default(),
+                    file_name: String::new(),
+                });
+
+                if let Mode::Execute(_) = mode {
+                    frame.set_cursor_position(Position::new(
+                        viewport_area
+                            .position
+                            .col
+                            .saturating_add(command_line.cursor_position().col),
+                        viewport_area.bottom() - 1,
+                    ));
+                    frame.render(command_line);
+                }
+
+                Ok(())
+            })
+            .map_err(|e| EditorError::Render(e))?;
+
+        Ok(())
     }
 }
 
@@ -162,102 +166,5 @@ impl Component for StatusBar {
             &status,
             &Style::new(Color::Rgb(63, 63, 63), Color::Rgb(239, 239, 239)),
         );
-    }
-}
-
-#[derive(Debug)]
-struct CommandLine {
-    pub area: Rect,
-    row: Row,
-    cursor_position: Position,
-}
-
-impl Default for CommandLine {
-    fn default() -> Self {
-        let mut command_line = CommandLine {
-            area: Rect::default(),
-            row: Row::default(),
-            cursor_position: Position::default(),
-        };
-
-        command_line.reset();
-
-        command_line
-    }
-}
-
-impl CommandLine {
-    pub fn execute_command(&mut self, command: Command) -> Option<Command> {
-        match command {
-            Command::EndCommandLineInput => {
-                let command = Some(Command::ParseCommandLineInput(self.row.contents()));
-                self.reset();
-                command
-            }
-            Command::InsertChar(ch) => {
-                self.row.insert(self.cursor_position.col, ch);
-                self.cursor_position.col = self.cursor_position.col.saturating_add(1);
-                None
-            }
-            Command::MoveCursorLeft(n) => {
-                if self.cursor_position.col > 1 {
-                    self.cursor_position.col = self.cursor_position.col.saturating_sub(n)
-                }
-                None
-            }
-            Command::MoveCursorRight(n) => {
-                if self.cursor_position.col != self.row.len() {
-                    self.cursor_position.col = self.cursor_position.col.saturating_add(n)
-                }
-                None
-            }
-            Command::MoveCursorLineStart => {
-                self.cursor_position.col = 1;
-                None
-            }
-            Command::MoveCursorLineEnd => {
-                self.cursor_position.col = self.row.len();
-                None
-            }
-            Command::DeleteCharForward => {
-                self.row.delete(self.cursor_position.col);
-
-                if self.row.len() == 1 {
-                    return Some(Command::EnterMode(Mode::Normal(NormalMode::default())));
-                }
-
-                None
-            }
-            Command::DeleteCharBackward => {
-                self.cursor_position.col = self.cursor_position.col.saturating_sub(1);
-                self.row.delete(self.cursor_position.col);
-
-                if self.row.len() == 1 {
-                    return Some(Command::EnterMode(Mode::Normal(NormalMode::default())));
-                }
-
-                None
-            }
-            _ => None,
-        }
-    }
-
-    pub fn cursor_position(&self) -> Position {
-        self.cursor_position
-    }
-
-    pub fn command_string(&self) -> String {
-        self.row.contents()
-    }
-
-    fn reset(&mut self) {
-        self.row = Row::from(":");
-        self.cursor_position.col = self.row.len();
-    }
-}
-
-impl Component for &CommandLine {
-    fn render(&self, buffer: &mut frame::Buffer) {
-        buffer.write_line(self.area.top(), &self.row.contents(), &Style::default());
     }
 }
