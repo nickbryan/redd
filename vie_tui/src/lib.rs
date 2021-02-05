@@ -138,7 +138,7 @@ impl<W: Write> Canvas for CrosstermCanvas<W> {
         let mut prev_foreground = Color(VieColor::Reset);
 
         for cell in cells {
-            self.position_cursor(cell.position().col, cell.position().row)?;
+            self.position_cursor(cell.position().row, cell.position().col)?;
 
             if cell.style().background != prev_background.0 {
                 crossterm::queue!(
@@ -186,9 +186,9 @@ impl<W: Write> Canvas for CrosstermCanvas<W> {
         use std::convert::TryFrom;
 
         let x =
-            u16::try_from(row).map_err(|e| IoError::new(io::ErrorKind::Other, format!("{}", e)))?;
-        let y =
             u16::try_from(col).map_err(|e| IoError::new(io::ErrorKind::Other, format!("{}", e)))?;
+        let y =
+            u16::try_from(row).map_err(|e| IoError::new(io::ErrorKind::Other, format!("{}", e)))?;
 
         crossterm::queue!(self.out, MoveTo(x, y)).map_err(crossterm_to_io_error)?;
         Ok(())

@@ -26,7 +26,11 @@ impl Display for Mode {
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Command {
+    EndCommandLineInput,
+    ParseCommandLineInput(String),
+
     EnterMode(Mode),
+
     InsertChar(char),
     InsertLineBreak,
     DeleteCharForward,
@@ -55,11 +59,8 @@ pub struct ExecuteMode {
 
 impl ExecuteMode {
     pub fn handle(&mut self, key: Key) -> Option<Command> {
-        if let Key::Enter = key {
-            return execute_mode::command_for_input(&self.row.contents());
-        }
-
         match key {
+            Key::Enter => Some(Command::EndCommandLineInput),
             Key::Char(ch) => Some(Command::InsertChar(ch)),
             Key::Left => Some(Command::MoveCursorLeft(1)),
             Key::Right => Some(Command::MoveCursorRight(1)),
@@ -70,65 +71,10 @@ impl ExecuteMode {
             Key::Esc => Some(Command::EnterMode(Mode::Normal(NormalMode::default()))),
             _ => None,
         }
-        .and_then(|command| self.execute_command(command))
     }
 
-    fn execute_command(&mut self, command: Command) -> Option<Command> {
-        match command {
-            Command::InsertChar(ch) => {
-                self.row.insert(self.cursor_position.col, ch);
-                self.cursor_position.col = self.cursor_position.col.saturating_add(1);
-                None
-            }
-            Command::MoveCursorLeft(n) => {
-                if self.cursor_position.col > 1 {
-                    self.cursor_position.col = self.cursor_position.col.saturating_sub(n)
-                }
-                None
-            }
-            Command::MoveCursorRight(n) => {
-                if self.cursor_position.col != self.row.len() {
-                    self.cursor_position.col = self.cursor_position.col.saturating_add(n)
-                }
-                None
-            }
-            Command::MoveCursorLineStart => {
-                self.cursor_position.col = 1;
-                None
-            }
-            Command::MoveCursorLineEnd => {
-                self.cursor_position.col = self.row.len();
-                None
-            }
-            Command::DeleteCharForward => {
-                self.row.delete(self.cursor_position.col);
-
-                if self.row.len() == 1 {
-                    return Some(Command::EnterMode(Mode::Normal(NormalMode::default())));
-                }
-
-                None
-            }
-            Command::DeleteCharBackward => {
-                self.cursor_position.col = self.cursor_position.col.saturating_sub(1);
-                self.row.delete(self.cursor_position.col);
-
-                if self.row.len() == 1 {
-                    return Some(Command::EnterMode(Mode::Normal(NormalMode::default())));
-                }
-
-                None
-            }
-            _ => None,
-        }
-    }
-
-    pub fn cursor_position(&self) -> Position {
-        self.cursor_position
-    }
-
-    pub fn contents(&self) -> String {
-        self.row.contents()
+    pub fn parse(&self, command_string: &str) -> Option<Command> {
+        execute_mode::command_for_input(command_string)
     }
 }
 
